@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ดูผลตรวจสุขภาพ</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to right, #f1f8e9, #ffffff);
+      padding: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: white;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
+    h1 {
+      color: #33691e;
+      margin-bottom: 1.5rem;
+    }
+    .message {
+      font-weight: bold;
+      margin-bottom: 1rem;
+    }
+    img {
+      max-width: 100%;
+      border-radius: 1rem;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .btn {
+      margin-top: 2rem;
+      padding: 0.75rem 1.5rem;
+      background: #33691e;
+      color: white;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>ผลตรวจสุขภาพของคุณ</h1>
+    <div class="message" id="message">กำลังโหลดข้อมูล...</div>
+    <img id="resultImg" style="display:none;" />
+    <button class="btn" onclick="liff.closeWindow()">ปิดหน้าต่าง</button>
+  </div>
+
+  <script>
+    async function fetchData(line_id) {
+      const url = "https://script.google.com/macros/s/AKfycbyy1yV6z5I5tiMxBlDduIRPMxKYHCCycKJ29oEAa9QDwE7lS_HBnfnJ8ipE9VA2KcuD/exec" + line_id;
+      const res = await fetch(url);
+      const data = await res.json();
+      return data;
+    }
+
+    async function main() {
+      try {
+        await liff.init({ liffId: "https://liff.line.me/2007238080-BedNy3yd" });
+        const profile = await liff.getProfile();
+        const line_id = profile.userId;
+
+        const data = await fetchData(line_id);
+        const msgEl = document.getElementById("message");
+        const imgEl = document.getElementById("resultImg");
+
+        if (data.status === "not_registered") {
+          msgEl.innerHTML = "คุณยังไม่ได้ลงทะเบียน <br><br><a href='register.html'>คลิกที่นี่เพื่อลงทะเบียน</a>";
+        } else if (data.status === "not_found") {
+          msgEl.textContent = "ยังไม่มีผลตรวจในระบบ กรุณารอตรวจสอบภายหลัง";
+        } else if (data.status === "ok") {
+          msgEl.textContent = "ผลตรวจวันที่ " + data.test_date;
+          imgEl.src = data.result_image_url;
+          imgEl.style.display = "block";
+        } else {
+          msgEl.textContent = "เกิดข้อผิดพลาดในการดึงข้อมูล";
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById("message").textContent = "ไม่สามารถโหลดข้อมูลได้";
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>
