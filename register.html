@@ -6,6 +6,7 @@
   <title>ลงทะเบียนตรวจสุขภาพ</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body class="bg-light">
   <div class="container mt-5">
@@ -32,8 +33,10 @@
   </div>
 
   <script>
-    const liffId = "2007284346-W3BaQ64M"; // << แก้เป็น LIFF ID ของคุณ
-    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // << ใส่ URL จาก sheet.best
+    const liffId = "2007284346-W3BaQ64M"; // << ใส่ LIFF ID ของคุณ
+    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // << URL จาก sheet.best
+    const telegramBotToken = "your_bot_token_here";
+    const telegramChatId = "your_chat_id_here";
 
     document.addEventListener("DOMContentLoaded", async function () {
       try {
@@ -58,24 +61,48 @@
           return;
         }
 
+        const hashedNationalId = CryptoJS.SHA256(nationalId).toString();
         const formData = {
           name: document.getElementById("name").value.trim(),
-          nationalId: nationalId,
+          nationalId: hashedNationalId,
           phone: document.getElementById("phone").value.trim(),
           userId: document.getElementById("userId").value
         };
 
         try {
+          // ตรวจข้อมูลซ้ำ
+          const existing = await fetch(sheetBestUrl);
+          const rows = await existing.json();
+          const isDuplicate = rows.some(row => row.nationalId === hashedNationalId || row.userId === formData.userId);
+
+          if (isDuplicate) {
+            alert("คุณลงทะเบียนไปแล้ว");
+            return;
+          }
+
+          // เพิ่มข้อมูลใหม่
           const res = await fetch(sheetBestUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(formData),
           });
+
           const result = await res.json();
-          console.log("ส่งข้อมูลแล้ว", result);
           alert("ลงทะเบียนสำเร็จ 🎉");
+
+          // ส่ง Telegram แจ้งเตือน
+          const message = `🩺 มีผู้ลงทะเบียนใหม่:\n👤 ชื่อ: ${formData.name}\n📱 เบอร์: ${formData.phone}`;
+          await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              chat_id: telegramChatId,
+              text: message,
+            }),
+          });
+
         } catch (err) {
-          alert("ไม่สามารถเชื่อมต่อกับระบบได้: " + err.message);
+          alert("เกิดข้อผิดพลาด: " + err.message);
         }
       });
     });
