@@ -36,8 +36,8 @@
   </div>
 
   <script>
-    const liffId = "2007284346-Kb68WM5d"; // แก้เป็นของคุณ
-    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // แก้เป็นของคุณ
+    const liffId = "2007284346-Kb68WM5d"; // ใส่ liffId ของคุณ
+    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // ลิงก์ API
 
     let userId = "";
     let resultData = [];
@@ -45,10 +45,7 @@
     document.addEventListener("DOMContentLoaded", async () => {
       try {
         await liff.init({ liffId });
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
+        if (!liff.isLoggedIn()) return liff.login();
 
         const profile = await liff.getProfile();
         document.getElementById("lineName").innerText = profile.displayName;
@@ -56,21 +53,14 @@
 
         const res = await fetch(sheetBestUrl);
         const allData = await res.json();
-        console.log("✅ All Data:", allData);
 
         resultData = allData.filter(row => row.userId === userId);
-        console.log("✅ Filtered Data:", resultData);
+        if (resultData.length === 0) return showAlert("❌ ยังไม่มีผลตรวจของคุณ", "danger");
 
-        if (resultData.length === 0) {
-          showAlert("❌ ยังไม่มีข้อมูลผลตรวจของคุณ กรุณาลงทะเบียนก่อน", "danger");
-          return;
-        }
-
+        // ดึงวันที่ไม่ซ้ำ
+        const dateSet = new Set(resultData.map(row => row.date));
         const dateSelect = document.getElementById("dateSelect");
-        const uniqueDates = [...new Set(resultData.map(row => row.date))]
-          .sort((a, b) => parseThaiDate(b) - parseThaiDate(a)); // เรียงจากใหม่ไปเก่า
-
-        uniqueDates.forEach(date => {
+        [...dateSet].sort().forEach(date => {
           const option = document.createElement("option");
           option.value = date;
           option.textContent = date;
@@ -79,7 +69,7 @@
 
         document.getElementById("resultCard").style.display = "block";
       } catch (err) {
-        showAlert("❌ ไม่สามารถโหลดข้อมูลได้: " + err.message, "danger");
+        showAlert("❌ โหลดข้อมูลล้มเหลว: " + err.message, "danger");
       }
     });
 
@@ -87,50 +77,24 @@
       const selectedDate = document.getElementById("dateSelect").value;
       const nationalId = document.getElementById("nationalId").value.trim();
 
-      if (!selectedDate) {
-        showAlert("⚠️ กรุณาเลือกวันที่ตรวจ", "warning");
-        return;
+      if (!selectedDate || !/^\d{13}$/.test(nationalId)) {
+        return showAlert("⚠️ โปรดเลือกวันที่และกรอกเลขบัตรให้ถูกต้อง", "warning");
       }
 
-      if (!/^\d{13}$/.test(nationalId)) {
-        showAlert("⚠️ กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง (13 หลัก)", "warning");
-        return;
-      }
+      const hash = CryptoJS.SHA256(nationalId).toString();
+      const found = resultData.find(row => row.date === selectedDate && row.nationalIdHash === hash);
 
-      const nationalIdHash = CryptoJS.SHA256(nationalId).toString();
-      const matched = resultData.find(
-        row => row.date === selectedDate && row.nationalIdHash === nationalIdHash
-      );
+      if (!found) return showAlert("❌ ไม่พบผลตรวจที่ตรงกัน", "danger");
 
-      if (!matched) {
-        showAlert("❌ ไม่พบข้อมูลที่ตรงกับเลขบัตรประชาชนและวันที่เลือก", "danger");
-        return;
-      }
-
-      let imageUrl = matched.resultImageUrl || "";
-      if (imageUrl.includes("drive.google.com")) {
-        imageUrl = convertDriveUrl(imageUrl);
-      }
-
-      document.getElementById("resultImage").src = imageUrl;
+      document.getElementById("resultImage").src = found.resultImageUrl;
       document.getElementById("resultSection").style.display = "block";
     });
 
-    function showAlert(message, type = "info") {
+    function showAlert(msg, type) {
       const box = document.getElementById("alertBox");
-      box.innerText = message;
+      box.textContent = msg;
       box.className = `alert alert-${type} text-center`;
       box.classList.remove("d-none");
-    }
-
-    function convertDriveUrl(url) {
-      const match = url.match(/\/d\/(.+?)\//);
-      return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url;
-    }
-
-    function parseThaiDate(thaiDate) {
-      const [d, m, y] = thaiDate.split("/").map(Number);
-      return new Date(y - 543, m - 1, d); // แปลงปี พ.ศ. → ค.ศ.
     }
   </script>
 </body>
