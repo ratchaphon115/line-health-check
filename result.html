@@ -36,8 +36,8 @@
   </div>
 
   <script>
-    const liffId = "2007284346-Kb68WM5d"; // ใส่ liffId ของคุณ
-    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // ลิงก์ API
+    const liffId = "2007284346-Kb68WM5d"; // ใส่ LIFF ID ของคุณ
+    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530/tabs/results"; // ชื่อแท็บ results
 
     let userId = "";
     let resultData = [];
@@ -58,6 +58,7 @@
 
         console.log("📦 ข้อมูลทั้งหมดจาก Sheet:", allData);
 
+        // กรองข้อมูลเฉพาะผู้ใช้นี้
         resultData = allData.filter(row => row.userId === userId);
 
         if (resultData.length === 0) {
@@ -69,10 +70,9 @@
 
         const dateSet = new Set();
         resultData.forEach(row => {
-if (row.date && row.date.toString().trim() !== "") {
-  dateSet.add(row.date.toString().trim());
-}
-
+          if (row.date && row.date.toString().trim() !== "") {
+            dateSet.add(row.date.toString().trim());
+          }
         });
 
         const dateSelect = document.getElementById("dateSelect");
