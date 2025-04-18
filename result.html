@@ -36,8 +36,8 @@
   </div>
 
   <script>
-    const liffId = "2007284346-Kb68WM5d"; // <- แก้เป็นของคุณ
-    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // <- แก้เป็นของคุณ
+    const liffId = "2007284346-Kb68WM5d"; // แก้เป็นของคุณ
+    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // แก้เป็นของคุณ
 
     let userId = "";
     let resultData = [];
@@ -56,8 +56,10 @@
 
         const res = await fetch(sheetBestUrl);
         const allData = await res.json();
+        console.log("✅ All Data:", allData);
 
         resultData = allData.filter(row => row.userId === userId);
+        console.log("✅ Filtered Data:", resultData);
 
         if (resultData.length === 0) {
           showAlert("❌ ยังไม่มีข้อมูลผลตรวจของคุณ กรุณาลงทะเบียนก่อน", "danger");
@@ -65,7 +67,8 @@
         }
 
         const dateSelect = document.getElementById("dateSelect");
-        const uniqueDates = [...new Set(resultData.map(row => row.date))];
+        const uniqueDates = [...new Set(resultData.map(row => row.date))]
+          .sort((a, b) => parseThaiDate(b) - parseThaiDate(a)); // เรียงจากใหม่ไปเก่า
 
         uniqueDates.forEach(date => {
           const option = document.createElement("option");
@@ -104,8 +107,12 @@
         return;
       }
 
-      // Show image
-      document.getElementById("resultImage").src = matched.resultImageUrl;
+      let imageUrl = matched.resultImageUrl || "";
+      if (imageUrl.includes("drive.google.com")) {
+        imageUrl = convertDriveUrl(imageUrl);
+      }
+
+      document.getElementById("resultImage").src = imageUrl;
       document.getElementById("resultSection").style.display = "block";
     });
 
@@ -114,6 +121,16 @@
       box.innerText = message;
       box.className = `alert alert-${type} text-center`;
       box.classList.remove("d-none");
+    }
+
+    function convertDriveUrl(url) {
+      const match = url.match(/\/d\/(.+?)\//);
+      return match ? `https://drive.google.com/uc?export=view&id=${match[1]}` : url;
+    }
+
+    function parseThaiDate(thaiDate) {
+      const [d, m, y] = thaiDate.split("/").map(Number);
+      return new Date(y - 543, m - 1, d); // แปลงปี พ.ศ. → ค.ศ.
     }
   </script>
 </body>
