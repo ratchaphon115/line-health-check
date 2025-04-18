@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Admin - ลงผลตรวจ</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+</head>
+<body class="bg-light">
+  <div class="container mt-5">
+    <div class="card shadow-lg p-4">
+      <h3 class="text-center mb-4">Admin - ลงผลตรวจ</h3>
+      <form id="adminForm">
+        <div class="mb-3">
+          <label class="form-label">userId</label>
+          <input type="text" class="form-control" id="userId" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">เลขบัตรประชาชน (13 หลัก)</label>
+          <input type="text" class="form-control" id="nationalId" maxlength="13" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">วันที่ตรวจ (ว/ด/ป พ.ศ.)</label>
+          <input type="text" class="form-control" id="date" placeholder="15/04/2568" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">ลิงก์รูปผลตรวจ (Google Drive, ฯลฯ)</label>
+          <input type="url" class="form-control" id="imageUrl" required />
+        </div>
+        <button class="btn btn-success w-100">บันทึกผล</button>
+      </form>
+      <div id="alertBox" class="alert d-none mt-3 text-center"></div>
+    </div>
+  </div>
+
+  <script>
+    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // ลิงก์ API
+
+    document.getElementById("adminForm").addEventListener("submit", async e => {
+      e.preventDefault();
+      const userId = document.getElementById("userId").value.trim();
+      const nationalId = document.getElementById("nationalId").value.trim();
+      const date = document.getElementById("date").value.trim();
+      const imageUrl = document.getElementById("imageUrl").value.trim();
+
+      if (!/^\d{13}$/.test(nationalId)) return show("❌ เลขบัตรไม่ถูกต้อง", "danger");
+
+      const hash = CryptoJS.SHA256(nationalId).toString();
+
+      const body = {
+        userId,
+        nationalIdHash: hash,
+        date,
+        resultImageUrl: imageUrl
+      };
+
+      const res = await fetch(sheetBestUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (res.ok) {
+        show("✅ บันทึกผลเรียบร้อย", "success");
+        document.getElementById("adminForm").reset();
+      } else {
+        show("❌ บันทึกไม่สำเร็จ", "danger");
+      }
+    });
+
+    function show(msg, type) {
+      const box = document.getElementById("alertBox");
+      box.textContent = msg;
+      box.className = `alert alert-${type} text-center`;
+      box.classList.remove("d-none");
+    }
+  </script>
+</body>
+</html>
