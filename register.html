@@ -1,77 +1,73 @@
+
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ลงทะเบียนตรวจสุขภาพ</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Health Check Registration</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
 </head>
-<body class="bg-light">
-  <div class="container mt-5">
-    <div class="card shadow-lg p-4">
-      <h3 class="mb-3">ลงทะเบียนตรวจสุขภาพ</h3>
-      <p>สวัสดีคุณ <span id="lineName">...</span></p>
-      <form id="registerForm">
-        <div class="mb-3">
-          <label for="name" class="form-label">ชื่อ-นามสกุล</label>
-          <input type="text" class="form-control" id="name" required />
-        </div>
-        <div class="mb-3">
-          <label for="nationalId" class="form-label">เลขบัตรประชาชน</label>
-          <input type="text" class="form-control" id="nationalId" maxlength="13" required />
-        </div>
-        <div class="mb-3">
-          <label for="phone" class="form-label">เบอร์โทรศัพท์</label>
-          <input type="tel" class="form-control" id="phone" required />
-        </div>
-        <input type="hidden" id="userId" />
-        <button type="submit" class="btn btn-success w-100">ลงทะเบียน</button>
-      </form>
-    </div>
+
+<body class="bg-gray-100 min-h-screen flex items-center justify-center">
+  <div class="bg-white p-8 rounded-2xl shadow-md w-full max-w-md">
+    <h2 class="text-2xl font-semibold text-center mb-6">ลงทะเบียนตรวจสุขภาพ</h2>
+
+    <form id="registerForm" class="space-y-4">
+      <input type="text" id="name" placeholder="ชื่อ - นามสกุล" required class="w-full p-3 rounded-xl border border-gray-300">
+      <input type="text" id="nationalId" placeholder="เลขบัตรประชาชน" required class="w-full p-3 rounded-xl border border-gray-300">
+      <input type="tel" id="phone" placeholder="เบอร์โทรศัพท์" required class="w-full p-3 rounded-xl border border-gray-300">
+      <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-semibold">
+        ลงทะเบียน
+      </button>
+    </form>
+
+    <p id="statusMsg" class="text-center mt-4 text-sm"></p>
   </div>
 
   <script>
-    document.addEventListener("DOMContentLoaded", async function () {
-      try {
-        await liff.init({ liffId: "2007281766-Arp71xZM" }); // <-- แก้ตรงนี้
-        if (!liff.isLoggedIn()) {
-          liff.login();
-          return;
-        }
-        const profile = await liff.getProfile();
-        document.getElementById("lineName").innerText = profile.displayName;
-        document.getElementById("userId").value = profile.userId;
-      } catch (err) {
-        alert("ไม่สามารถเชื่อมต่อกับระบบได้: " + err.message);
-      }
+    const scriptURL = "https://script.google.com/macros/s/AKfycbxSwqm3sv2Q9OozMWFT7SY6dNcuCHLfvtJRFwyuwccu5XRtVVdvoFPGaVa9Z03yx4Xu/exec";
 
-      document.getElementById("registerForm").addEventListener("submit", async function (e) {
-        e.preventDefault();
-        const formData = {
-          name: document.getElementById("name").value,
-          nationalId: document.getElementById("nationalId").value,
-          phone: document.getElementById("phone").value,
-          userId: document.getElementById("userId").value,
-        };
+    async function initLiff() {
+      await liff.init({ liffId: "2007281766-Arp71xZM" });
+      if (!liff.isLoggedIn()) liff.login();
+    }
 
-        try {
-          const res = await fetch("https://script.google.com/macros/s/AKfycbyy1yV6z5I5tiMxBlDduIRPMxKYHCCycKJ29oEAa9QDwE7lS_HBnfnJ8ipE9VA2KcuD/exec", { // <-- แก้ตรงนี้
-            method: "POST",
-            body: JSON.stringify(formData),
-            headers: { "Content-Type": "application/json" },
-          });
-          const result = await res.json();
-          if (result.status === "success") {
-            alert("ลงทะเบียนสำเร็จ");
-          } else {
-            alert("เกิดข้อผิดพลาด: " + result.message);
-          }
-        } catch (err) {
-          alert("ไม่สามารถเชื่อมต่อกับระบบได้S: " + err.message);
-        }
+    initLiff();
+
+    document.getElementById("registerForm").addEventListener("submit", async function (e) {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+      const nationalId = document.getElementById("nationalId").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const userId = liff.getContext().userId || liff.getDecodedIDToken().sub;
+      const nationalIdHash = CryptoJS.SHA256(nationalId).toString();
+
+      const payload = { name, nationalIdHash, phone, userId };
+
+      const res = await fetch(scriptURL, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
       });
+
+      const result = await res.json();
+      const statusEl = document.getElementById("statusMsg");
+
+      if (result.status === "success") {
+        statusEl.textContent = "✅ ลงทะเบียนสำเร็จ!";
+        statusEl.className = "text-green-600 text-center mt-4";
+      } else if (result.status === "duplicate") {
+        statusEl.textContent = "⚠️ คุณได้ลงทะเบียนไปแล้ว";
+        statusEl.className = "text-yellow-600 text-center mt-4";
+      } else {
+        statusEl.textContent = "❌ เกิดข้อผิดพลาด กรุณาลองใหม่";
+        statusEl.className = "text-red-600 text-center mt-4";
+      }
     });
   </script>
 </body>
+
 </html>
