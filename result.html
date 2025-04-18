@@ -1,114 +1,120 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ดูผลตรวจสุขภาพ</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body class="bg-light">
-<div class="container mt-5">
-  <div id="alertBox" class="alert d-none text-center" role="alert"></div>
+  <div class="container mt-5">
+    <div id="alertBox" class="alert d-none text-center" role="alert"></div>
 
-  <div class="card shadow-lg p-4" id="resultCard" style="display: none;">
-    <h3 class="text-center mb-4">ผลตรวจสุขภาพของคุณ</h3>
-    <div class="mb-3">
-      <label for="dateSelect" class="form-label">เลือกวันที่ตรวจ</label>
-      <select class="form-select" id="dateSelect"></select>
+    <div class="card shadow-lg p-4" id="resultCard" style="display:none;">
+      <h3 class="mb-3 text-center">ดูผลตรวจสุขภาพ</h3>
+      <p class="text-center">สวัสดีคุณ <strong><span id="lineName">...</span></strong></p>
+
+      <div class="mb-3">
+        <label for="dateSelect" class="form-label">เลือกวันที่ตรวจ</label>
+        <select class="form-select" id="dateSelect" required></select>
+      </div>
+
+      <div class="mb-3">
+        <label for="nationalId" class="form-label">ยืนยันเลขบัตรประชาชน (13 หลัก)</label>
+        <input type="text" class="form-control" id="nationalId" maxlength="13" required />
+      </div>
+
+      <button id="viewResultBtn" class="btn btn-primary w-100">ดูผลตรวจ</button>
+
+      <div id="resultSection" class="mt-4 text-center" style="display:none;">
+        <h5>ผลตรวจของคุณ</h5>
+        <img id="resultImage" src="" class="img-fluid rounded shadow" alt="ผลตรวจ" />
+      </div>
     </div>
-    <div class="mb-3">
-      <label for="confirmNationalId" class="form-label">ยืนยันเลขบัตรประชาชน (13 หลัก)</label>
-      <input type="text" class="form-control" id="confirmNationalId" maxlength="13" required>
-    </div>
-    <button id="viewResultBtn" class="btn btn-primary w-100">ดูผลตรวจ</button>
-    <div id="resultImage" class="mt-4 text-center"></div>
   </div>
-</div>
 
-<script>
-const liffId = "2007284346-Kb68WM5d"; // <-- แก้ตรงนี้
-const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // <-- แก้ตรงนี้
+  <script>
+    const liffId = "2007284346-Kb68WM5d"; // <- แก้เป็นของคุณ
+    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // <- แก้เป็นของคุณ
 
-let userId = "";
-let resultsData = [];
+    let userId = "";
+    let resultData = [];
 
-function showAlert(message, type = "info") {
-  const box = document.getElementById("alertBox");
-  box.innerText = message;
-  box.className = `alert alert-${type} text-center`;
-  box.classList.remove("d-none");
-}
+    document.addEventListener("DOMContentLoaded", async () => {
+      try {
+        await liff.init({ liffId });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
 
-function populateDateSelect(dates) {
-  const select = document.getElementById("dateSelect");
-  select.innerHTML = "";
-  [...new Set(dates)].forEach(date => {
-    const option = document.createElement("option");
-    option.value = date;
-    option.innerText = date;
-    select.appendChild(option);
-  });
-}
+        const profile = await liff.getProfile();
+        document.getElementById("lineName").innerText = profile.displayName;
+        userId = profile.userId;
 
-function displayImage(url) {
-  const container = document.getElementById("resultImage");
-  container.innerHTML = `<img src="${url}" alt="ผลตรวจ" class="img-fluid rounded shadow">`;
-}
+        const res = await fetch(sheetBestUrl);
+        const allData = await res.json();
 
-async function init() {
-  try {
-    await liff.init({ liffId });
-    if (!liff.isLoggedIn()) {
-      liff.login();
-      return;
+        resultData = allData.filter(row => row.userId === userId);
+
+        if (resultData.length === 0) {
+          showAlert("❌ ยังไม่มีข้อมูลผลตรวจของคุณ กรุณาลงทะเบียนก่อน", "danger");
+          return;
+        }
+
+        const dateSelect = document.getElementById("dateSelect");
+        const uniqueDates = [...new Set(resultData.map(row => row.date))];
+
+        uniqueDates.forEach(date => {
+          const option = document.createElement("option");
+          option.value = date;
+          option.textContent = date;
+          dateSelect.appendChild(option);
+        });
+
+        document.getElementById("resultCard").style.display = "block";
+      } catch (err) {
+        showAlert("❌ ไม่สามารถโหลดข้อมูลได้: " + err.message, "danger");
+      }
+    });
+
+    document.getElementById("viewResultBtn").addEventListener("click", () => {
+      const selectedDate = document.getElementById("dateSelect").value;
+      const nationalId = document.getElementById("nationalId").value.trim();
+
+      if (!selectedDate) {
+        showAlert("⚠️ กรุณาเลือกวันที่ตรวจ", "warning");
+        return;
+      }
+
+      if (!/^\d{13}$/.test(nationalId)) {
+        showAlert("⚠️ กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง (13 หลัก)", "warning");
+        return;
+      }
+
+      const nationalIdHash = CryptoJS.SHA256(nationalId).toString();
+      const matched = resultData.find(
+        row => row.date === selectedDate && row.nationalIdHash === nationalIdHash
+      );
+
+      if (!matched) {
+        showAlert("❌ ไม่พบข้อมูลที่ตรงกับเลขบัตรประชาชนและวันที่เลือก", "danger");
+        return;
+      }
+
+      // Show image
+      document.getElementById("resultImage").src = matched.resultImageUrl;
+      document.getElementById("resultSection").style.display = "block";
+    });
+
+    function showAlert(message, type = "info") {
+      const box = document.getElementById("alertBox");
+      box.innerText = message;
+      box.className = `alert alert-${type} text-center`;
+      box.classList.remove("d-none");
     }
-
-    const profile = await liff.getProfile();
-    userId = profile.userId;
-
-    const res = await fetch(sheetBestUrl);
-    const data = await res.json();
-    resultsData = data.filter(row => row.userId === userId);
-
-    if (resultsData.length === 0) {
-      showAlert("❌ ไม่พบข้อมูลการลงทะเบียนของคุณ กรุณาลงทะเบียนก่อน", "danger");
-      setTimeout(() => window.location.href = "register.html", 3000);
-      return;
-    }
-
-    populateDateSelect(resultsData.map(row => row.date));
-    document.getElementById("resultCard").style.display = "block";
-  } catch (err) {
-    showAlert("❌ ระบบมีปัญหา: " + err.message, "danger");
-  }
-}
-
-init();
-
-// กดปุ่มดูผล
-
-document.getElementById("viewResultBtn").addEventListener("click", () => {
-  const selectedDate = document.getElementById("dateSelect").value;
-  const nationalId = document.getElementById("confirmNationalId").value.trim();
-
-  if (!/^[0-9]{13}$/.test(nationalId)) {
-    showAlert("⚠️ กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง (13 หลัก)", "warning");
-    return;
-  }
-
-  const hashId = CryptoJS.SHA256(nationalId).toString();
-  const result = resultsData.find(row => row.date === selectedDate && row.nationalIdHash === hashId);
-
-  if (!result) {
-    showAlert("❌ ไม่พบผลตรวจสำหรับข้อมูลที่ระบุ", "danger");
-    return;
-  }
-
-  showAlert("✅ แสดงผลตรวจสำเร็จ", "success");
-  displayImage(result.resultImageUrl);
-});
-</script>
+  </script>
 </body>
 </html>
