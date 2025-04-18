@@ -71,7 +71,10 @@
         availableDates.forEach(date => {
           const option = document.createElement("option");
           option.value = date;
-          option.textContent = new Date(date).toLocaleDateString('th-TH');
+          // แปลงวันที่ให้เป็น ว/ด/ป (พ.ศ.)
+          const dateObj = new Date(date);
+          const thDate = `${dateObj.getDate()}/${dateObj.getMonth() + 1}/${dateObj.getFullYear() + 543}`;
+          option.textContent = thDate;
           dateSelect.appendChild(option);
         });
 
@@ -101,8 +104,8 @@
         return;
       }
 
-      document.getElementById("resultImage").src = result.resultUrl;
-      document.getElementById("resultLink").href = result.resultUrl;
+      document.getElementById("resultImage").src = result.resultImageUrl;
+      document.getElementById("resultLink").href = result.resultImageUrl;
       document.getElementById("resultBox").classList.remove("d-none");
     });
   </script>
