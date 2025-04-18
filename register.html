@@ -10,7 +10,9 @@
 </head>
 <body class="bg-light">
   <div class="container mt-5">
-    <div class="card shadow-lg p-4">
+    <div id="alertBox" class="alert d-none text-center" role="alert"></div>
+
+    <div class="card shadow-lg p-4" id="formCard">
       <h3 class="mb-3 text-center">ลงทะเบียนตรวจสุขภาพ</h3>
       <p class="text-center">สวัสดีคุณ <strong><span id="lineName">...</span></strong></p>
       <form id="registerForm">
@@ -33,10 +35,10 @@
   </div>
 
   <script>
-    const liffId = "2007284346-W3BaQ64M"; // << ใส่ LIFF ID ของคุณ
-    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // << URL จาก sheet.best
-    const telegramBotToken = "your_bot_token_here";
-    const telegramChatId = "your_chat_id_here";
+    const liffId = "2007284346-W3BaQ64M"; // <-- แก้เป็นของคุณ
+    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // <-- แก้เป็นของคุณ
+    const telegramToken = "YOUR_TELEGRAM_BOT_TOKEN"; // <-- แก้เป็นของคุณ
+    const telegramChatId = "YOUR_TELEGRAM_CHAT_ID"; // <-- แก้เป็นของคุณ
 
     document.addEventListener("DOMContentLoaded", async function () {
       try {
@@ -45,67 +47,98 @@
           liff.login();
           return;
         }
+
         const profile = await liff.getProfile();
         document.getElementById("lineName").innerText = profile.displayName;
         document.getElementById("userId").value = profile.userId;
+
+        // 🔎 ตรวจสอบว่ามี userId นี้ใน Google Sheet แล้วหรือยัง
+        const res = await fetch(sheetBestUrl);
+        const data = await res.json();
+        const found = data.find(row => row.userId === profile.userId);
+
+        if (found) {
+          showAlert("🚨 คุณได้ลงทะเบียนแล้ว", "danger");
+          document.getElementById("formCard").classList.add("d-none");
+        }
       } catch (err) {
-        alert("ไม่สามารถเชื่อมต่อกับระบบได้: " + err.message);
+        showAlert("❌ ไม่สามารถเชื่อมต่อกับระบบได้: " + err.message, "danger");
       }
 
+      // ⏳ กดปุ่มลงทะเบียน
       document.getElementById("registerForm").addEventListener("submit", async function (e) {
         e.preventDefault();
 
+        const name = document.getElementById("name").value.trim();
         const nationalId = document.getElementById("nationalId").value.trim();
-        if (nationalId.length !== 13 || !/^\d{13}$/.test(nationalId)) {
-          alert("กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง");
+        const phone = document.getElementById("phone").value.trim();
+        const userId = document.getElementById("userId").value;
+
+        if (!/^\d{13}$/.test(nationalId)) {
+          showAlert("❌ กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง (13 หลัก)", "warning");
           return;
         }
 
-        const hashedNationalId = CryptoJS.SHA256(nationalId).toString();
-        const formData = {
-          name: document.getElementById("name").value.trim(),
-          nationalId: hashedNationalId,
-          phone: document.getElementById("phone").value.trim(),
-          userId: document.getElementById("userId").value
-        };
+        // 🔐 Hash nationalId
+        const nationalIdHash = CryptoJS.SHA256(nationalId).toString();
 
+        // ✅ ส่งข้อมูลไปยัง Google Sheet
         try {
-          // ตรวจข้อมูลซ้ำ
-          const existing = await fetch(sheetBestUrl);
-          const rows = await existing.json();
-          const isDuplicate = rows.some(row => row.nationalId === hashedNationalId || row.userId === formData.userId);
-
-          if (isDuplicate) {
-            alert("คุณลงทะเบียนไปแล้ว");
+          // ตรวจซ้ำอีกรอบก่อน POST
+          const checkRes = await fetch(sheetBestUrl);
+          const existing = await checkRes.json();
+          const duplicate = existing.find(row => row.userId === userId);
+          if (duplicate) {
+            showAlert("🚨 คุณได้ลงทะเบียนแล้ว", "danger");
             return;
           }
 
-          // เพิ่มข้อมูลใหม่
-          const res = await fetch(sheetBestUrl, {
+          const body = {
+            name,
+            nationalId: nationalIdHash,
+            phone,
+            userId
+          };
+
+          const sheetRes = await fetch(sheetBestUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
+            body: JSON.stringify(body)
           });
 
-          const result = await res.json();
-          alert("ลงทะเบียนสำเร็จ 🎉");
-
-          // ส่ง Telegram แจ้งเตือน
-          const message = `🩺 มีผู้ลงทะเบียนใหม่:\n👤 ชื่อ: ${formData.name}\n📱 เบอร์: ${formData.phone}`;
-          await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: telegramChatId,
-              text: message,
-            }),
-          });
-
+          if (sheetRes.ok) {
+            showAlert("✅ ลงทะเบียนสำเร็จ 🎉", "success");
+            sendTelegram(`📝 มีผู้ลงทะเบียนใหม่\n👤 ชื่อ: ${name}\n📱 เบอร์: ${phone}`);
+            document.getElementById("registerForm").reset();
+            document.getElementById("formCard").classList.add("d-none");
+          } else {
+            showAlert("❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล", "danger");
+          }
         } catch (err) {
-          alert("เกิดข้อผิดพลาด: " + err.message);
+          showAlert("❌ ระบบมีปัญหา: " + err.message, "danger");
         }
       });
     });
+
+    function showAlert(message, type = "info") {
+      const box = document.getElementById("alertBox");
+      box.innerText = message;
+      box.className = `alert alert-${type} text-center`;
+      box.classList.remove("d-none");
+    }
+
+    async function sendTelegram(msg) {
+      const url = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: telegramChatId,
+          text: msg,
+          parse_mode: "HTML"
+        })
+      });
+    }
   </script>
 </body>
 </html>
