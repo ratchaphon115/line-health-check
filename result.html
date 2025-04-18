@@ -51,15 +51,35 @@
         document.getElementById("lineName").innerText = profile.displayName;
         userId = profile.userId;
 
+        console.log("✅ LINE userId:", userId);
+
         const res = await fetch(sheetBestUrl);
         const allData = await res.json();
 
-        resultData = allData.filter(row => row.userId === userId);
-        if (resultData.length === 0) return showAlert("❌ ยังไม่มีผลตรวจของคุณ", "danger");
+        console.log("📦 ข้อมูลทั้งหมดจาก Sheet:", allData);
 
-        // ดึงวันที่ไม่ซ้ำ
-        const dateSet = new Set(resultData.map(row => row.date));
+        resultData = allData.filter(row => row.userId === userId);
+
+        if (resultData.length === 0) {
+          console.warn("⚠️ ไม่พบข้อมูลของ userId นี้ใน Sheet");
+          return showAlert("❌ ยังไม่มีผลตรวจของคุณ", "danger");
+        }
+
+        console.log("📅 ข้อมูลเฉพาะของผู้ใช้:", resultData);
+
+        const dateSet = new Set();
+        resultData.forEach(row => {
+          if (row.date && row.date.trim() !== "") {
+            dateSet.add(row.date);
+          }
+        });
+
         const dateSelect = document.getElementById("dateSelect");
+
+        if (dateSet.size === 0) {
+          return showAlert("⚠️ ไม่มีวันที่ตรวจในข้อมูลของคุณ กรุณาตรวจสอบใน Google Sheet", "warning");
+        }
+
         [...dateSet].sort().forEach(date => {
           const option = document.createElement("option");
           option.value = date;
@@ -69,6 +89,7 @@
 
         document.getElementById("resultCard").style.display = "block";
       } catch (err) {
+        console.error("❌ ERROR:", err);
         showAlert("❌ โหลดข้อมูลล้มเหลว: " + err.message, "danger");
       }
     });
