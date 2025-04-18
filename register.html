@@ -6,7 +6,6 @@
   <title>ลงทะเบียนตรวจสุขภาพ</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body class="bg-light">
   <div class="container mt-5">
@@ -34,7 +33,7 @@
 
   <script>
     const liffId = "2007284346-W3BaQ64M"; // << แก้เป็น LIFF ID ของคุณ
-    const scriptUrl = "https://script.google.com/macros/s/AKfycbwRpK88g5llK66k7aPeoMhkToaH2qfbvTBWL7eR_yX8tJ6UUVcbulGfODmNXZjgZC8/exec"; // << แก้เป็น Web App URL ของคุณ
+    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530"; // << ใส่ URL จาก sheet.best
 
     document.addEventListener("DOMContentLoaded", async function () {
       try {
@@ -52,6 +51,7 @@
 
       document.getElementById("registerForm").addEventListener("submit", async function (e) {
         e.preventDefault();
+
         const nationalId = document.getElementById("nationalId").value.trim();
         if (nationalId.length !== 13 || !/^\d{13}$/.test(nationalId)) {
           alert("กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง");
@@ -60,25 +60,20 @@
 
         const formData = {
           name: document.getElementById("name").value.trim(),
-          nationalIdHash: CryptoJS.SHA256(nationalId).toString(),
+          nationalId: nationalId,
           phone: document.getElementById("phone").value.trim(),
           userId: document.getElementById("userId").value
         };
 
         try {
-          const res = await fetch(scriptUrl, {
+          const res = await fetch(sheetBestUrl, {
             method: "POST",
-            body: JSON.stringify(formData),
             headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(formData),
           });
           const result = await res.json();
-          if (result.status === "success") {
-            alert("ลงทะเบียนสำเร็จ 🎉");
-          } else if (result.status === "duplicate") {
-            alert("คุณลงทะเบียนไปแล้ว");
-          } else {
-            alert("เกิดข้อผิดพลาด: " + result.message);
-          }
+          console.log("ส่งข้อมูลแล้ว", result);
+          alert("ลงทะเบียนสำเร็จ 🎉");
         } catch (err) {
           alert("ไม่สามารถเชื่อมต่อกับระบบได้: " + err.message);
         }
