@@ -91,18 +91,21 @@
             return;
           }
 
-          const body = {
-            name,
-            nationalId: nationalIdHash,
-            phone,
-            userId
-          };
+          const body = new URLSearchParams({
+  name,
+  nationalId: nationalIdHash,
+  phone,
+  userId
+});
 
-          const sheetRes = await fetch(appsScriptUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body)
-          });
+const sheetRes = await fetch(appsScriptUrl, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/x-www-form-urlencoded"
+  },
+  body: body.toString()
+});
+
 
           if (sheetRes.ok) {
             showAlert("✅ ลงทะเบียนสำเร็จ 🎉", "success");
