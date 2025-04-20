@@ -35,10 +35,10 @@
   </div>
 
   <script>
-    const liffId = "2007284346-W3BaQ64M"; // <-- แก้เป็นของคุณ
-   const sheetBestUrl = "https://script.google.com/macros/s/AKfycbwWyl0zw6pGwzT9rR9gKHAV6pTnvFRJoDGsQH9b9AXnKuWqyArEukqcTwA9GXYniYZiqA/exec"; // ใส่ URL GAS ที่คุณได้มา
-    const telegramToken = "YOUR_TELEGRAM_BOT_TOKEN"; // <-- แก้เป็นของคุณ
-    const telegramChatId = "YOUR_TELEGRAM_CHAT_ID"; // <-- แก้เป็นของคุณ
+    const liffId = "2007284346-W3BaQ64M"; // แก้เป็นของคุณ
+    const gasUrl = "https://script.google.com/macros/s/AKfycbwWyl0zw6pGwzT9rR9gKHAV6pTnvFRJoDGsQH9b9AXnKuWqyArEukqcTwA9GXYniYZiqA/exec"; // ใส่ URL ของ Google Apps Script
+    const telegramToken = "YOUR_TELEGRAM_BOT_TOKEN"; // แก้เป็นของคุณ
+    const telegramChatId = "YOUR_TELEGRAM_CHAT_ID"; // แก้เป็นของคุณ
 
     document.addEventListener("DOMContentLoaded", async function () {
       try {
@@ -53,7 +53,7 @@
         document.getElementById("userId").value = profile.userId;
 
         // 🔎 ตรวจสอบว่ามี userId นี้ใน Google Sheet แล้วหรือยัง
-        const res = await fetch(sheetBestUrl);
+        const res = await fetch(gasUrl);
         const data = await res.json();
         const found = data.find(row => row.userId === profile.userId);
 
@@ -82,10 +82,9 @@
         // 🔐 Hash nationalId
         const nationalIdHash = CryptoJS.SHA256(nationalId).toString();
 
-        // ✅ ส่งข้อมูลไปยัง Google Sheet
         try {
-          // ตรวจซ้ำอีกรอบก่อน POST
-          const checkRes = await fetch(sheetBestUrl);
+          // ตรวจซ้ำก่อน POST
+          const checkRes = await fetch(gasUrl);
           const existing = await checkRes.json();
           const duplicate = existing.find(row => row.userId === userId);
           if (duplicate) {
@@ -100,25 +99,28 @@
             userId
           };
 
-          const sheetRes = await fetch(sheetBestUrl, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify(body)
-});
+          const sheetRes = await fetch(gasUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+          });
 
-const result = await sheetRes.json();
-if (result.status === "duplicate") {
-  showAlert("🚨 คุณได้ลงทะเบียนแล้ว", "danger");
-  return;
-} else if (result.status === "success") {
-  showAlert("✅ ลงทะเบียนสำเร็จ 🎉", "success");
-  sendTelegram(`📝 มีผู้ลงทะเบียนใหม่\n👤 ชื่อ: ${name}\n📱 เบอร์: ${phone}`);
-  document.getElementById("registerForm").reset();
-  document.getElementById("formCard").classList.add("d-none");
-} else {
-  showAlert("❌ มีบางอย่างผิดพลาดในการบันทึก", "danger");
-}
+          const result = await sheetRes.json();
 
+          if (result.status === "duplicate") {
+            showAlert("🚨 คุณได้ลงทะเบียนแล้ว", "danger");
+            return;
+          } else if (result.status === "success") {
+            showAlert("✅ ลงทะเบียนสำเร็จ 🎉", "success");
+            sendTelegram(`📝 มีผู้ลงทะเบียนใหม่\n👤 ชื่อ: ${name}\n📱 เบอร์: ${phone}`);
+            document.getElementById("registerForm").reset();
+            document.getElementById("formCard").classList.add("d-none");
+          } else {
+            showAlert("❌ มีบางอย่างผิดพลาดในการบันทึก", "danger");
+          }
+        } catch (error) {
+          showAlert("❌ เกิดข้อผิดพลาด: " + error.message, "danger");
+        }
       });
     });
 
