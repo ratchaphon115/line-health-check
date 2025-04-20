@@ -58,7 +58,7 @@
   </div>
 
   <script>
-    const appsScriptUrl = "https://script.google.com/macros/s/AKfycby0rMapVay9eIWDdtQddlv9XYuE2zj4E-RTV-dI8yvC2gOAtEaTc4RpIxzIa9Oxj1UMhQ/exec"; // เปลี่ยนเป็น Script ID ของคุณ
+    const appsScriptUrl = "https://script.google.com/macros/s/AKfycbxDH-ldePGrgrfk7ZWKFVVUD49I0tDU5zbRJjW4xGM-ss4iUgNNhohALPS7wqFvNfSLhQ/exec"; // << เปลี่ยนเป็นของคุณ
     const fileList = [];
     let userId = "";
 
@@ -124,10 +124,11 @@
 
       const nationalIdHash = CryptoJS.SHA256(nationalId).toString();
       const formData = new FormData();
+      formData.append("action", "uploadResult");
       formData.append("userId", userId);
       formData.append("nationalIdHash", nationalIdHash);
       formData.append("date", date);
-      fileList.forEach(file => formData.append("files[]", file));
+      fileList.forEach((file, i) => formData.append(`file${i}`, file));
 
       status.innerHTML = "⏳ กำลังอัปโหลด...";
       try {
