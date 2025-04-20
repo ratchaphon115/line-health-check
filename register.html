@@ -35,8 +35,8 @@
   </div>
 
   <script>
-    const liffId = "2007295990-gX2mRvVx"; // แก้เป็นของคุณ
-    const gasUrl = "https://script.google.com/macros/s/AKfycbx_a-quDTcUbFUCFnSwXMt4j_7Jn45chteAaYSUSAasZQctYmW9qZDo6oasv4G0I1jUCg/exec"; // ใส่ URL ของ Google Apps Script
+    const liffId = "2007284346-W3BaQ64M"; // แก้เป็นของคุณ
+    const appsScriptUrl = "https://script.google.com/macros/s/AKfycbxMcLvFBJPSeAvw18_l25GleTM8Z2sSimHu87uIaHGgn7cqTBQFXiNPclFbuXK4c_pnYw/exec"; // แก้เป็นของคุณ
     const telegramToken = "YOUR_TELEGRAM_BOT_TOKEN"; // แก้เป็นของคุณ
     const telegramChatId = "YOUR_TELEGRAM_CHAT_ID"; // แก้เป็นของคุณ
 
@@ -53,7 +53,7 @@
         document.getElementById("userId").value = profile.userId;
 
         // 🔎 ตรวจสอบว่ามี userId นี้ใน Google Sheet แล้วหรือยัง
-        const res = await fetch(gasUrl);
+        const res = await fetch(appsScriptUrl);
         const data = await res.json();
         const found = data.find(row => row.userId === profile.userId);
 
@@ -79,12 +79,11 @@
           return;
         }
 
-        // 🔐 Hash nationalId
         const nationalIdHash = CryptoJS.SHA256(nationalId).toString();
 
         try {
           // ตรวจซ้ำก่อน POST
-          const checkRes = await fetch(gasUrl);
+          const checkRes = await fetch(appsScriptUrl);
           const existing = await checkRes.json();
           const duplicate = existing.find(row => row.userId === userId);
           if (duplicate) {
@@ -99,27 +98,22 @@
             userId
           };
 
-          const sheetRes = await fetch(gasUrl, {
+          const sheetRes = await fetch(appsScriptUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body)
           });
 
-          const result = await sheetRes.json();
-
-          if (result.status === "duplicate") {
-            showAlert("🚨 คุณได้ลงทะเบียนแล้ว", "danger");
-            return;
-          } else if (result.status === "success") {
+          if (sheetRes.ok) {
             showAlert("✅ ลงทะเบียนสำเร็จ 🎉", "success");
             sendTelegram(`📝 มีผู้ลงทะเบียนใหม่\n👤 ชื่อ: ${name}\n📱 เบอร์: ${phone}`);
             document.getElementById("registerForm").reset();
             document.getElementById("formCard").classList.add("d-none");
           } else {
-            showAlert("❌ มีบางอย่างผิดพลาดในการบันทึก", "danger");
+            showAlert("❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล", "danger");
           }
-        } catch (error) {
-          showAlert("❌ เกิดข้อผิดพลาด: " + error.message, "danger");
+        } catch (err) {
+          showAlert("❌ ระบบมีปัญหา: " + err.message, "danger");
         }
       });
     });
