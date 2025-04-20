@@ -13,6 +13,7 @@
       text-align: center;
       background-color: #f9f9f9;
       cursor: pointer;
+      transition: border-color 0.3s;
     }
     #dropZone.dragover {
       border-color: #28a745;
@@ -22,17 +23,20 @@
       max-width: 150px;
       max-height: 150px;
       margin: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
     }
   </style>
 </head>
 <body class="bg-light">
   <div class="container mt-5">
     <h3 class="text-center mb-4">ระบบอัปโหลดผลตรวจสุขภาพ</h3>
+    
     <div class="card p-4 shadow-lg">
       <div class="mb-3">
         <label for="nationalId" class="form-label">เลขบัตรประชาชน</label>
         <input type="text" id="nationalId" class="form-control" maxlength="13" required>
-        <div id="nameDisplay" class="form-text text-success mt-1"></div>
+        <div id="userName" class="form-text mt-1 text-primary"></div>
       </div>
 
       <div class="mb-3">
@@ -42,9 +46,10 @@
 
       <div class="mb-3">
         <label class="form-label">อัปโหลดผลตรวจ</label>
-        <input type="file" id="fileInput" class="form-control mb-2" accept="image/*,application/pdf">
+        <input type="file" id="fileInput" class="form-control mb-2" multiple>
+
         <div id="dropZone">📂 ลากไฟล์หรือวางรูปตรงนี้ หรือ คลิกเลือกไฟล์</div>
-        <div id="preview" class="d-flex flex-wrap mt-3"></div>
+        <div id="preview" class="d-flex flex-wrap justify-content-start mt-3"></div>
       </div>
 
       <button id="submitBtn" class="btn btn-success w-100">อัปโหลด</button>
@@ -53,10 +58,9 @@
   </div>
 
   <script>
-    const appsScriptUrl = "https://script.google.com/macros/s/AKfycby0rMapVay9eIWDdtQddlv9XYuE2zj4E-RTV-dI8yvC2gOAtEaTc4RpIxzIa9Oxj1UMhQ/exec";
+    const appsScriptUrl = "https://script.google.com/macros/s/AKfycby0rMapVay9eIWDdtQddlv9XYuE2zj4E-RTV-dI8yvC2gOAtEaTc4RpIxzIa9Oxj1UMhQ/exec"; // เปลี่ยนเป็น Script ID ของคุณ
     const fileList = [];
-    let userId = null;
-    let nameMatched = "";
+    let userId = "";
 
     const dropZone = document.getElementById("dropZone");
     const fileInput = document.getElementById("fileInput");
@@ -81,25 +85,30 @@
     dropZone.addEventListener("dragover", e => { e.preventDefault(); dropZone.classList.add("dragover"); });
     dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
     dropZone.addEventListener("drop", e => {
-      e.preventDefault(); dropZone.classList.remove("dragover");
+      e.preventDefault();
+      dropZone.classList.remove("dragover");
       [...e.dataTransfer.files].forEach(addFile);
     });
     dropZone.addEventListener("click", () => fileInput.click());
 
     document.getElementById("nationalId").addEventListener("blur", async () => {
-      const id = document.getElementById("nationalId").value.trim();
-      if (id.length === 13) {
-        const res = await fetch(`${appsScriptUrl}?action=checkUser&nationalId=${id}`);
+      const nationalId = document.getElementById("nationalId").value.trim();
+      const userName = document.getElementById("userName");
+      userName.innerText = "⏳ กำลังตรวจสอบ...";
+
+      try {
+        const res = await fetch(`${appsScriptUrl}?action=checkUser&nationalId=${nationalId}`);
         const data = await res.json();
         if (data.success) {
+          userName.innerText = `👤 ${data.name}`;
           userId = data.userId;
-          nameMatched = data.name;
-          document.getElementById("nameDisplay").innerText = `ชื่อผู้ใช้: ${nameMatched}`;
         } else {
-          userId = null;
-          nameMatched = "";
-          document.getElementById("nameDisplay").innerText = `ไม่พบข้อมูลผู้ใช้`;
+          userName.innerText = "❌ ไม่พบข้อมูลผู้ใช้ในระบบ";
+          userId = "";
         }
+      } catch (err) {
+        userName.innerText = "⚠️ เกิดข้อผิดพลาดในการตรวจสอบ";
+        console.error(err);
       }
     });
 
@@ -108,8 +117,8 @@
       const date = document.getElementById("date").value;
       const status = document.getElementById("status");
 
-      if (!userId || !nationalId || !date || fileList.length === 0) {
-        status.innerHTML = "<span class='text-danger'>⚠️ ข้อมูลไม่ครบ</span>";
+      if (!/^[0-9]{13}$/.test(nationalId) || !date || !userId || fileList.length === 0) {
+        status.innerHTML = "<span class='text-danger'>⚠️ กรุณากรอกข้อมูลให้ครบและแนบไฟล์</span>";
         return;
       }
 
@@ -118,7 +127,7 @@
       formData.append("userId", userId);
       formData.append("nationalIdHash", nationalIdHash);
       formData.append("date", date);
-      formData.append("file", fileList[0]); // รับไฟล์เดียว
+      fileList.forEach(file => formData.append("files[]", file));
 
       status.innerHTML = "⏳ กำลังอัปโหลด...";
       try {
@@ -129,7 +138,7 @@
           fileList.length = 0;
           preview.innerHTML = "";
         } else {
-          status.innerHTML = `<span class='text-danger'>❌ ${result.message}</span>`;
+          status.innerHTML = `<span class='text-danger'>❌ อัปโหลดล้มเหลว: ${result.message}</span>`;
         }
       } catch (err) {
         console.error(err);
