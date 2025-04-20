@@ -37,7 +37,7 @@
 
   <script>
     const liffId = "2007284346-Kb68WM5d"; // ใส่ LIFF ID ของคุณ
-    const sheetBestUrl = "https://api.sheetbest.com/sheets/521a8898-2824-4585-81ca-deaf3117c530/tabs/results"; // ชื่อแท็บ results
+    const appsScriptUrl = "https://script.google.com/macros/s/AKfycbyxazvBjkPVEnby0H5Wgb2HRCMct2zzohVYT03iiGCeuB6HL7mzZXAel5nE0gGOFtnxFA/exec";
 
     let userId = "";
     let resultData = [];
@@ -53,20 +53,25 @@
 
         console.log("✅ LINE userId:", userId);
 
-        const res = await fetch(sheetBestUrl);
+        // เรียกข้อมูลด้วย POST (แก้ CORS)
+        const body = new URLSearchParams({ userId });
+
+        const res = await fetch(appsScriptUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          body: body.toString()
+        });
+
         const allData = await res.json();
+        console.log("📦 ข้อมูลที่ได้:", allData);
 
-        console.log("📦 ข้อมูลทั้งหมดจาก Sheet:", allData);
-
-        // กรองข้อมูลเฉพาะผู้ใช้นี้
-        resultData = allData.filter(row => row.userId === userId);
+        resultData = allData;
 
         if (resultData.length === 0) {
-          console.warn("⚠️ ไม่พบข้อมูลของ userId นี้ใน Sheet");
           return showAlert("❌ ยังไม่มีผลตรวจของคุณ", "danger");
         }
-
-        console.log("📅 ข้อมูลเฉพาะของผู้ใช้:", resultData);
 
         const dateSet = new Set();
         resultData.forEach(row => {
