@@ -1,62 +1,146 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
-  <title>Register</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ลงทะเบียนตรวจสุขภาพ</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
-<body>
-  <h2>Health Check Registration</h2>
-  <form id="registerForm">
-    <input type="text" id="name" placeholder="Full Name" required><br>
-    <input type="text" id="nationalId" placeholder="National ID" required><br>
-    <input type="text" id="phone" placeholder="Phone Number" required><br>
-    <button type="submit">Register</button>
-  </form>
+<body class="bg-light">
+  <div class="container mt-5">
+    <div id="alertBox" class="alert d-none text-center" role="alert"></div>
+
+    <div class="card shadow-lg p-4" id="formCard">
+      <h3 class="mb-3 text-center">ลงทะเบียนตรวจสุขภาพ</h3>
+      <p class="text-center">สวัสดีคุณ <strong><span id="lineName">...</span></strong></p>
+      <form id="registerForm">
+        <div class="mb-3">
+          <label for="name" class="form-label">ชื่อ-นามสกุล</label>
+          <input type="text" class="form-control" id="name" required />
+        </div>
+        <div class="mb-3">
+          <label for="nationalId" class="form-label">เลขบัตรประชาชน</label>
+          <input type="text" class="form-control" id="nationalId" maxlength="13" required />
+        </div>
+        <div class="mb-3">
+          <label for="phone" class="form-label">เบอร์โทรศัพท์</label>
+          <input type="tel" class="form-control" id="phone" required />
+        </div>
+        <input type="hidden" id="userId" />
+        <button type="submit" class="btn btn-success w-100">ลงทะเบียน</button>
+      </form>
+    </div>
+  </div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbxvtkCUN7ZnxdTdlwpp0TrJz25ule4c9E8NU-93Rem66AwligXRoTOHBY5XxTZGaJwkyw/exec";
+    const liffId = "2007284346-W3BaQ64M"; // <-- แก้เป็นของคุณ
+   const sheetBestUrl = "https://script.google.com/macros/s/AKfycbwoub_JIN-dkEbxe02xsl_T7FeWuEsjkb-F0ylsTWaA4eTbkrly67mGqeECSAzliDyMSg/exec"; // ใส่ URL GAS ที่คุณได้มา
+    const telegramToken = "YOUR_TELEGRAM_BOT_TOKEN"; // <-- แก้เป็นของคุณ
+    const telegramChatId = "YOUR_TELEGRAM_CHAT_ID"; // <-- แก้เป็นของคุณ
 
-    let userId = "";
+    document.addEventListener("DOMContentLoaded", async function () {
+      try {
+        await liff.init({ liffId });
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
 
-    async function checkExisting(userId) {
-      const res = await fetch(`${GAS_URL}?path=register`);
-      const data = await res.json();
-      return data.find(u => u.userId === userId);
-    }
+        const profile = await liff.getProfile();
+        document.getElementById("lineName").innerText = profile.displayName;
+        document.getElementById("userId").value = profile.userId;
 
-    async function init() {
-      await liff.init({ liffId: "2007284346-W3BaQ64M" });
-      if (!liff.isLoggedIn()) liff.login();
+        // 🔎 ตรวจสอบว่ามี userId นี้ใน Google Sheet แล้วหรือยัง
+        const res = await fetch(sheetBestUrl);
+        const data = await res.json();
+        const found = data.find(row => row.userId === profile.userId);
 
-      const profile = await liff.getProfile();
-      userId = profile.userId;
-
-      const existing = await checkExisting(userId);
-      if (existing) {
-        alert("คุณได้ลงทะเบียนแล้ว");
-        document.getElementById("registerForm").style.display = "none";
+        if (found) {
+          showAlert("🚨 คุณได้ลงทะเบียนแล้ว", "danger");
+          document.getElementById("formCard").classList.add("d-none");
+        }
+      } catch (err) {
+        showAlert("❌ ไม่สามารถเชื่อมต่อกับระบบได้: " + err.message, "danger");
       }
-    }
 
-    document.getElementById("registerForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const payload = {
-        name: document.getElementById("name").value,
-        nationalId: document.getElementById("nationalId").value,
-        phone: document.getElementById("phone").value,
-        userId: userId
-      };
+      // ⏳ กดปุ่มลงทะเบียน
+      document.getElementById("registerForm").addEventListener("submit", async function (e) {
+        e.preventDefault();
 
-      await fetch(`${GAS_URL}?path=register`, {
-        method: "POST",
-        body: JSON.stringify(payload)
+        const name = document.getElementById("name").value.trim();
+        const nationalId = document.getElementById("nationalId").value.trim();
+        const phone = document.getElementById("phone").value.trim();
+        const userId = document.getElementById("userId").value;
+
+        if (!/^\d{13}$/.test(nationalId)) {
+          showAlert("❌ กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง (13 หลัก)", "warning");
+          return;
+        }
+
+        // 🔐 Hash nationalId
+        const nationalIdHash = CryptoJS.SHA256(nationalId).toString();
+
+        // ✅ ส่งข้อมูลไปยัง Google Sheet
+        try {
+          // ตรวจซ้ำอีกรอบก่อน POST
+          const checkRes = await fetch(sheetBestUrl);
+          const existing = await checkRes.json();
+          const duplicate = existing.find(row => row.userId === userId);
+          if (duplicate) {
+            showAlert("🚨 คุณได้ลงทะเบียนแล้ว", "danger");
+            return;
+          }
+
+          const body = {
+            name,
+            nationalId: nationalIdHash,
+            phone,
+            userId
+          };
+
+          const sheetRes = await fetch(sheetBestUrl, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body)
+});
+
+const result = await sheetRes.json();
+if (result.status === "duplicate") {
+  showAlert("🚨 คุณได้ลงทะเบียนแล้ว", "danger");
+  return;
+} else if (result.status === "success") {
+  showAlert("✅ ลงทะเบียนสำเร็จ 🎉", "success");
+  sendTelegram(`📝 มีผู้ลงทะเบียนใหม่\n👤 ชื่อ: ${name}\n📱 เบอร์: ${phone}`);
+  document.getElementById("registerForm").reset();
+  document.getElementById("formCard").classList.add("d-none");
+} else {
+  showAlert("❌ มีบางอย่างผิดพลาดในการบันทึก", "danger");
+}
+
       });
-
-      alert("ลงทะเบียนสำเร็จ!");
-      liff.closeWindow();
     });
 
-    init();
+    function showAlert(message, type = "info") {
+      const box = document.getElementById("alertBox");
+      box.innerText = message;
+      box.className = `alert alert-${type} text-center`;
+      box.classList.remove("d-none");
+    }
+
+    async function sendTelegram(msg) {
+      const url = `https://api.telegram.org/bot${telegramToken}/sendMessage`;
+      await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: telegramChatId,
+          text: msg,
+          parse_mode: "HTML"
+        })
+      });
+    }
   </script>
 </body>
 </html>
