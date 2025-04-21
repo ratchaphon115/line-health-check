@@ -25,7 +25,7 @@
   </div>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxFCCAAQWzprrY5ZsN-y_cVuOTGuiRSFgtL5USjpD_DjDnlFwNjkDZ7Cx4zezMisoRNCw/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxFCCAAQWzprrY5ZsN-y_cVuOTGuiRSFgtL5USjpD_DjDnlFwNjkDZ7Cx4zezMisoRNCw/exec'; // 👈 เปลี่ยนลิงก์ตรงนี้ให้ถูกต้อง
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const preview = document.getElementById('preview');
@@ -80,7 +80,7 @@
 
       const formData = new FormData();
       formData.append("meta", JSON.stringify({ userId: userName, nationalIdHash: nationalId, date }));
-      files.forEach(file => formData.append("files[]", file));
+      files.forEach((file, i) => formData.append(`file${i}`, file));
 
       const res = await fetch(SCRIPT_URL, { method: 'POST', body: formData });
       const json = await res.json();
