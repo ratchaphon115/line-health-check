@@ -1,137 +1,97 @@
+<!-- admin.html -->
 <!DOCTYPE html>
 <html lang="th">
 <head>
   <meta charset="UTF-8">
   <title>อัปโหลดผลตรวจสุขภาพ</title>
   <style>
-    body {
-      font-family: sans-serif;
-      background: #f4f4f4;
-      padding: 20px;
-    }
-    .container {
-      max-width: 600px;
-      margin: auto;
-      background: white;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-    input, button {
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      width: 100%;
-    }
-    .drop-zone {
-      border: 2px dashed #bbb;
-      border-radius: 10px;
-      padding: 30px;
-      text-align: center;
-      margin-top: 15px;
-      cursor: pointer;
-      color: #888;
-    }
-    .drop-zone.dragover {
-      background: #f0f0f0;
-    }
-    .preview img {
-      width: 100px;
-      margin-top: 10px;
-      margin-right: 10px;
-      border-radius: 8px;
-    }
+    body { font-family: sans-serif; background: #f9f9f9; padding: 20px; }
+    .box { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    input, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 6px; border: 1px solid #ccc; }
+    .drop-zone { margin-top: 15px; border: 2px dashed #ccc; padding: 30px; text-align: center; cursor: pointer; }
+    .preview img { max-width: 80px; margin: 5px; border-radius: 8px; }
   </style>
 </head>
 <body>
-<div class="container">
-  <h2>อัปโหลดผลตรวจสุขภาพ</h2>
+  <div class="box">
+    <h2>อัปโหลดผลตรวจสุขภาพ</h2>
+    <input type="text" id="nationalId" placeholder="เลขบัตรประชาชน" />
+    <input type="text" id="userName" placeholder="ชื่อผู้ใช้" disabled />
+    <input type="date" id="date" />
+    <div class="drop-zone" id="dropZone">ลากหรือคลิกรูปภาพ</div>
+    <input type="file" id="fileInput" multiple accept="image/*" style="display:none;" />
+    <div class="preview" id="preview"></div>
+    <button onclick="upload()">อัปโหลด</button>
+  </div>
 
-  <input type="text" id="nationalId" placeholder="เลขบัตรประชาชน" />
-  <input type="text" id="userName" placeholder="ชื่อผู้ใช้" disabled />
-  <input type="date" id="date" />
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzqj7XzVsTdSfXtmvgr4tqInkO426nBLiCjAhmFJzEpT7-8tK_FN0GiMcolMd8M20nhJg/exec';
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const preview = document.getElementById('preview');
+    const nationalIdInput = document.getElementById('nationalId');
+    const userNameInput = document.getElementById('userName');
+    let files = [];
 
-  <div class="drop-zone" id="dropZone">ลาก/วาง หรือคลิกเพื่อเลือกรูปภาพ</div>
-  <input type="file" id="fileInput" multiple accept="image/*" style="display:none;">
-  <div class="preview" id="preview"></div>
+    nationalIdInput.addEventListener('blur', async () => {
+      const id = nationalIdInput.value;
+      if (id.length === 13) {
+        const res = await fetch(`${SCRIPT_URL}?lookupId=${id}`);
+        const data = await res.json();
+        userNameInput.value = data.name || 'ไม่พบชื่อ';
+      }
+    });
 
-  <button onclick="uploadImages()">อัปโหลด</button>
-</div>
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => {
+      e.preventDefault();
+      dropZone.style.background = '#f0f0f0';
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.style.background = '');
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.style.background = '';
+      handleFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', () => handleFiles(fileInput.files));
 
-<script>
-const dropZone = document.getElementById('dropZone');
-const fileInput = document.getElementById('fileInput');
-const preview = document.getElementById('preview');
-const nationalIdInput = document.getElementById('nationalId');
-const userNameInput = document.getElementById('userName');
-let filesToUpload = [];
+    function handleFiles(selected) {
+      for (let file of selected) {
+        files.push(file);
+        const reader = new FileReader();
+        reader.onload = e => {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          preview.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
 
-// ดึงชื่อจากเลขบัตร
-nationalIdInput.addEventListener('blur', async () => {
-  const nationalId = nationalIdInput.value.trim();
-  if (nationalId.length === 13) {
-    const res = await fetch(`https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec?lookupId=${nationalId}`);
-    const json = await res.json();
-    userNameInput.value = json.name || 'ไม่พบชื่อ';
-  } else {
-    userNameInput.value = '';
-  }
-});
+    async function upload() {
+      const nationalId = nationalIdInput.value.trim();
+      const userName = userNameInput.value.trim();
+      const date = document.getElementById('date').value;
 
-dropZone.addEventListener('click', () => fileInput.click());
-dropZone.addEventListener('dragover', e => {
-  e.preventDefault();
-  dropZone.classList.add('dragover');
-});
-dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
-dropZone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropZone.classList.remove('dragover');
-  handleFiles(e.dataTransfer.files);
-});
-fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+      if (!nationalId || !userName || !date || files.length === 0) {
+        alert("กรอกข้อมูลให้ครบก่อนอัปโหลด");
+        return;
+      }
 
-function handleFiles(files) {
-  for (const file of files) {
-    filesToUpload.push(file);
-    const reader = new FileReader();
-    reader.onload = e => {
-      const img = document.createElement('img');
-      img.src = e.target.result;
-      preview.appendChild(img);
-    };
-    reader.readAsDataURL(file);
-  }
-}
+      const formData = new FormData();
+      formData.append("meta", JSON.stringify({ userId: userName, nationalIdHash: nationalId, date }));
+      files.forEach(file => formData.append("files[]", file));
 
-async function uploadImages() {
-  const nationalId = nationalIdInput.value.trim();
-  const userName = userNameInput.value.trim();
-  const date = document.getElementById('date').value;
+      const res = await fetch(SCRIPT_URL, { method: 'POST', body: formData });
+      const json = await res.json();
 
-  if (!nationalId || !userName || !date || filesToUpload.length === 0) {
-    alert("กรุณากรอกข้อมูลให้ครบถ้วนและเลือกรูปภาพ");
-    return;
-  }
-
-  const formData = new FormData();
-  const meta = { userId: userName, nationalIdHash: nationalId, date };
-  formData.append("meta", JSON.stringify(meta));
-  filesToUpload.forEach(file => formData.append("files[]", file));
-
-  const res = await fetch("https://script.google.com/macros/s/AKfycbwTIcZccnsqimJdLYVz8Y9tlM0igwov5wTXOoP-e0M-A3ysh0nu8lWBhJQewSjcnYxdZw/exec", {
-    method: "POST",
-    body: formData
-  });
-  const json = await res.json();
-  if (json.success) {
-    alert("อัปโหลดสำเร็จ");
-    location.reload();
-  } else {
-    alert("เกิดข้อผิดพลาด: " + json.message);
-  }
-}
-</script>
+      if (json.success) {
+        alert("อัปโหลดสำเร็จ");
+        location.reload();
+      } else {
+        alert("เกิดข้อผิดพลาด: " + json.message);
+      }
+    }
+  </script>
 </body>
 </html>
