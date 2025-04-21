@@ -25,7 +25,7 @@
   </div>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbylage-YRz3L-0KcHf937cdEaZ6s2KG4wPa6HKMUIALe1glDdVcPQ_9G7Jg4q5gZeQwjA/exec'; // เปลี่ยนเป็น URL ของคุณ
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQOwUZk5y5rApb897_P_56-R7cY9mzhjH1BYuo-wd53u2nLIAYmEsWCG4JyTwvxyqpkQ/exec'; // ใช้ของคุณเอง
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const preview = document.getElementById('preview');
@@ -33,12 +33,17 @@
     const userNameInput = document.getElementById('userName');
     let files = [];
 
+    // ดึงชื่อและ userId จาก nationalId
     nationalIdInput.addEventListener('blur', async () => {
-      const id = nationalIdInput.value;
+      const id = nationalIdInput.value.trim();
       if (id.length === 13) {
         const res = await fetch(`${SCRIPT_URL}?lookupId=${id}`);
         const data = await res.json();
         userNameInput.value = data.name || 'ไม่พบชื่อ';
+        userNameInput.dataset.userId = data.userId || '';
+      } else {
+        userNameInput.value = 'เลขไม่ถูกต้อง';
+        userNameInput.dataset.userId = '';
       }
     });
 
@@ -71,15 +76,16 @@
     async function upload() {
       const nationalId = nationalIdInput.value.trim();
       const userName = userNameInput.value.trim();
+      const userId = userNameInput.dataset.userId?.trim();
       const date = document.getElementById('date').value;
 
-      if (!nationalId || !userName || !date || files.length === 0) {
+      if (!nationalId || !userName || !userId || !date || files.length === 0) {
         alert("กรอกข้อมูลให้ครบก่อนอัปโหลด");
         return;
       }
 
       const formData = new FormData();
-      formData.append("meta", JSON.stringify({ userId: userName, nationalIdHash: nationalId, date }));
+      formData.append("meta", JSON.stringify({ userId, nationalIdHash: nationalId, date }));
       files.forEach((file, i) => formData.append(`file${i}`, file));
 
       const res = await fetch(SCRIPT_URL, { method: 'POST', body: formData });
