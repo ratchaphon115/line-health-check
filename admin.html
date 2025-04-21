@@ -1,3 +1,4 @@
+<!-- admin.html -->
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -7,59 +8,55 @@
     body { font-family: sans-serif; background: #f9f9f9; padding: 20px; }
     .box { max-width: 500px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
     input, button { width: 100%; padding: 10px; margin-top: 10px; border-radius: 6px; border: 1px solid #ccc; }
-    .drop-zone { margin-top: 15px; border: 2px dashed #ccc; padding: 30px; text-align: center; cursor: pointer; display: none; }
+    .drop-zone { margin-top: 15px; border: 2px dashed #ccc; padding: 30px; text-align: center; cursor: pointer; }
     .preview img { max-width: 80px; margin: 5px; border-radius: 8px; }
-    #uploadBtn, #date, .preview { display: none; }
   </style>
 </head>
 <body>
   <div class="box">
     <h2>อัปโหลดผลตรวจสุขภาพ</h2>
-    <input type="text" id="nationalId" placeholder="เลขบัตรประชาชน" maxlength="13" />
-    <button onclick="checkUser()">ตรวจสอบผู้ใช้</button>
+    <input type="text" id="nationalId" placeholder="เลขบัตรประชาชน" />
     <input type="text" id="userName" placeholder="ชื่อผู้ใช้" disabled />
     <input type="date" id="date" />
     <div class="drop-zone" id="dropZone">ลากหรือคลิกรูปภาพ</div>
     <input type="file" id="fileInput" multiple accept="image/*" style="display:none;" />
     <div class="preview" id="preview"></div>
-    <button id="uploadBtn" onclick="upload()">อัปโหลด</button>
+    <button onclick="upload()">อัปโหลด</button>
   </div>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQOwUZk5y5rApb897_P_56-R7cY9mzhjH1BYuo-wd53u2nLIAYmEsWCG4JyTwvxyqpkQ/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz0WXdx46VB3ZSb9VTeZK81w5993Ua2aAFa15rDUiWsYNn2Q_TySJnlfRLnMYM5LH7WsA/exec';
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
     const preview = document.getElementById('preview');
     const nationalIdInput = document.getElementById('nationalId');
     const userNameInput = document.getElementById('userName');
-    const dateInput = document.getElementById('date');
-    const uploadBtn = document.getElementById('uploadBtn');
     let files = [];
 
-    async function checkUser() {
-      const id = nationalIdInput.value.trim();
-      if (id.length !== 13 || !/^\d{13}$/.test(id)) {
-        alert("กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง (13 หลัก)");
-        return;
-      }
-
-      const res = await fetch(`${SCRIPT_URL}?lookupId=${id}`);
-      const data = await res.json();
-
-      if (data && data.name) {
-        userNameInput.value = data.name;
-        userNameInput.dataset.userId = data.userId;
-
-        // Show upload section
-        dateInput.style.display = 'block';
-        dropZone.style.display = 'block';
-        uploadBtn.style.display = 'block';
-      } else {
-        userNameInput.value = 'ไม่พบชื่อในระบบ';
-        userNameInput.dataset.userId = '';
-        alert("ไม่พบข้อมูลผู้ใช้ในระบบ กรุณาตรวจสอบอีกครั้ง");
-      }
+    // เข้ารหัส SHA-256 ด้วย SubtleCrypto API
+    async function hashSHA256(text) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(text);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      return [...new Uint8Array(hashBuffer)].map(b => b.toString(16).padStart(2, '0')).join('');
     }
+
+    // เมื่อกรอกเลขบัตรครบ แล้ว blur → เข้ารหัส → fetch ข้อมูลผู้ใช้
+    nationalIdInput.addEventListener('blur', async () => {
+      const id = nationalIdInput.value.trim();
+      if (id.length === 13) {
+        const hashedId = await hashSHA256(id);
+        const res = await fetch(`${SCRIPT_URL}?lookupId=${hashedId}`);
+        const data = await res.json();
+        userNameInput.value = data.name || 'ไม่พบชื่อ';
+        userNameInput.dataset.userId = data.userId || '';
+        userNameInput.dataset.hashId = hashedId;
+      } else {
+        userNameInput.value = 'เลขไม่ถูกต้อง';
+        userNameInput.dataset.userId = '';
+        userNameInput.dataset.hashId = '';
+      }
+    });
 
     dropZone.addEventListener('click', () => fileInput.click());
     dropZone.addEventListener('dragover', e => {
@@ -85,22 +82,22 @@
         };
         reader.readAsDataURL(file);
       }
-      preview.style.display = 'block';
     }
 
     async function upload() {
       const nationalId = nationalIdInput.value.trim();
       const userName = userNameInput.value.trim();
       const userId = userNameInput.dataset.userId?.trim();
-      const date = dateInput.value;
+      const nationalIdHash = userNameInput.dataset.hashId?.trim();
+      const date = document.getElementById('date').value;
 
-      if (!nationalId || !userName || !userId || !date || files.length === 0) {
+      if (!nationalId || !userName || !userId || !nationalIdHash || !date || files.length === 0) {
         alert("กรอกข้อมูลให้ครบก่อนอัปโหลด");
         return;
       }
 
       const formData = new FormData();
-      formData.append("meta", JSON.stringify({ userId, nationalIdHash: nationalId, date }));
+      formData.append("meta", JSON.stringify({ userId, nationalIdHash, date }));
       files.forEach((file, i) => formData.append(`file${i}`, file));
 
       const res = await fetch(SCRIPT_URL, { method: 'POST', body: formData });
