@@ -109,7 +109,7 @@ const sheetRes = await fetch(appsScriptUrl, {
 
           if (sheetRes.ok) {
             showAlert("✅ ลงทะเบียนสำเร็จ 🎉", "success");
-            sendTelegram(`📝 มีผู้ลงทะเบียนใหม่\n👤 ชื่อ: ${name}\n📱 เบอร์: ${phone}`);
+            sendTelegram(`📝 มีผู้ลงทะเบียนใหม่\n👤 ชื่อ: ${name}\n📱 บัตรประชาชน: ${nationalId}\n📱 เบอร์: ${phone}`);
             document.getElementById("registerForm").reset();
             document.getElementById("formCard").classList.add("d-none");
           } else {
