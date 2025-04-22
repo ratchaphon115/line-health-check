@@ -38,7 +38,7 @@
     const liffId = "2007284346-W3BaQ64M"; // แก้เป็นของคุณ
     const appsScriptUrl = "https://script.google.com/macros/s/AKfycbw2goXaVqmfSMXaFkC2yBe47UbLecrB4LSfbvTP_cOO05doObvJcir0ausk9H8ySprU5g/exec"; // แก้เป็นของคุณ
     const telegramToken = "7460910789:AAH4K7c_dQ7FxCUIYK9JEcTFrTWx-GnZFQ4"; // แก้เป็นของคุณ
-    const telegramChatId = "1842473894"; // แก้เป็นของคุณ
+    const telegramChatId = "-4602385258"; // แก้เป็นของคุณ
 
     document.addEventListener("DOMContentLoaded", async function () {
       try {
@@ -109,7 +109,7 @@ const sheetRes = await fetch(appsScriptUrl, {
 
           if (sheetRes.ok) {
             showAlert("✅ ลงทะเบียนสำเร็จ 🎉", "success");
-            sendTelegram(`📝 มีผู้ลงทะเบียนใหม่\n👤 ชื่อ: ${name}\n📱 บัตรประชาชน: ${nationalId}\n📱 เบอร์: ${phone}`);
+            sendTelegram(`📝 มีผู้ลงทะเบียนใหม่\n👤 ชื่อ: ${name}\n💳 บัตรประชาชน: ${nationalId}\n📱 เบอร์: ${phone}`);
             document.getElementById("registerForm").reset();
             document.getElementById("formCard").classList.add("d-none");
           } else {
