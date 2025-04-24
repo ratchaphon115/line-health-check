@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>ลงทะเบียนแอดมิน</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #f9f9f9;
+      padding: 2rem;
+      max-width: 400px;
+      margin: auto;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 0.8rem;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    button {
+      background-color: #06c755;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #04a94f;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .message {
+      text-align: center;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h2>ลงทะเบียนแอดมิน</h2>
+
+  <input type="text" id="name" placeholder="ชื่อ-สกุล" required />
+  <button onclick="register()">ลงทะเบียน</button>
+
+  <div class="message" id="message"></div>
+
+  <script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3-i9s6hTOzFs3Y714LhGX4P5TKuUAd1nFjBnCq_N3FGQ8XGOmIUKmb7UTw8szXBRKFw/exec';
+
+    let userId = null;
+
+    async function main() {
+      await liff.init({ liffId: '2007284346-yPRgqlkx' });
+      if (!liff.isLoggedIn()) liff.login();
+      const profile = await liff.getProfile();
+      userId = profile.userId;
+    }
+
+    async function register() {
+      const name = document.getElementById('name').value.trim();
+      if (!name) return alert("กรุณากรอกชื่อ");
+
+      const res = await fetch(SCRIPT_URL, {
+        method: 'POST',
+        body: JSON.stringify({
+          action: 'registerAdmin',
+          name,
+          userId
+        }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      const data = await res.json();
+      const msg = document.getElementById('message');
+      if (data.success) {
+        msg.innerText = "✅ ลงทะเบียนสำเร็จ";
+      } else {
+        msg.innerText = "❌ " + (data.message || "ลงทะเบียนไม่สำเร็จ");
+      }
+    }
+
+    main();
+  </script>
+</body>
+</html>
