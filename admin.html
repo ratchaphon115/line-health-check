@@ -1,104 +1,63 @@
 <!DOCTYPE html>
-<html lang="th">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Admin | อัปโหลดผลตรวจสุขภาพ</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 1rem; }
-    h2 { color: teal; }
-    input, button { width: 100%; padding: 0.5rem; margin-bottom: 1rem; }
-    .success { color: green; }
-    .error { color: red; }
-  </style>
+  <title>Admin Panel</title>
 </head>
 <body>
-  <h2>📤 อัปโหลดผลตรวจสุขภาพ</h2>
-  <label>เลขบัตรประชาชน</label>
-  <input type="text" id="nationalId" maxlength="13" />
-  <button onclick="checkNationalId()">ตรวจสอบ</button>
-  <p id="userInfo"></p>
+  <h2>อัปโหลดผลตรวจ</h2>
+  <input type="file" id="file" />
+  <input type="text" id="userId" placeholder="userId" />
+  <input type="text" id="nationalId" placeholder="เลขบัตร ปชช." />
+  <input type="text" id="date" placeholder="วันที่ตรวจ (01/01/2567)" />
+  <button onclick="submitResult()">ส่งผลตรวจ</button>
 
-  <label>วันที่ตรวจ</label>
-  <input type="date" id="checkDate" />
-
-  <label>เลือกไฟล์ผลตรวจ</label>
-  <input type="file" id="fileInput" />
-
-  <button onclick="uploadResult()">✅ อัปโหลดผลตรวจ</button>
-
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
-    const endpoint = "https://script.google.com/macros/s/AKfycbyLVjWi-Ai6d0TLWGmULuY4xuFkgUEAytpAgi6D2nq4VrZWhw5kmBq0XAFm9-71zFj3Yw/exec";
-    let matchedUserId = null;
-    let hashedNationalId = null;
+    async function submitResult() {
+      await liff.init({ liffId: 'your-liff-id' });
+      if (!liff.isLoggedIn()) return liff.login();
 
-    async function sha256(str) {
-      const buf = new TextEncoder().encode(str);
-      const hash = await crypto.subtle.digest("SHA-256", buf);
-      return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
-    }
+      const userId = liff.getDecodedIDToken().sub;
 
-    async function checkNationalId() {
-      const id = document.getElementById("nationalId").value.trim();
-      if (id.length !== 13) return alert("กรุณากรอกเลขบัตรให้ครบ 13 หลัก");
-      hashedNationalId = await sha256(id);
+      const res = await fetch(`https://script.google.com/macros/s/AKfycbw794LR1VS-gWJkkRV529gofIbDtglHmtNgF407if-o62L8Z_n2gDAK14TJVgqcUST1UA/exec?action=isAdmin&userId=${userId}`);
+      const data = await res.json();
 
-      try {
-        const res = await fetch(`${endpoint}?action=checkUserId&nationalIdHash=${hashedNationalId}`);
-        const data = await res.json();
-        if (data.found) {
-          matchedUserId = data.userId;
-          document.getElementById("userInfo").innerHTML = `✅ พบผู้ใช้: <strong>${data.name}</strong>`;
-          document.getElementById("userInfo").className = "success";
-        } else {
-          matchedUserId = null;
-          document.getElementById("userInfo").textContent = "❌ ไม่พบข้อมูลในระบบ";
-          document.getElementById("userInfo").className = "error";
-        }
-      } catch (err) {
-        console.error(err);
-        document.getElementById("userInfo").textContent = "เกิดข้อผิดพลาด";
-      }
-    }
+      if (!data.success) return alert("ไม่ใช่แอดมิน");
 
-    async function uploadResult() {
-      const file = document.getElementById("fileInput").files[0];
-      const date = document.getElementById("checkDate").value;
-      if (!file || !date || !matchedUserId) return alert("ข้อมูลไม่ครบ");
+      const fileInput = document.getElementById('file');
+      const file = fileInput.files[0];
+      const reader = new FileReader();
 
-      const base64 = await toBase64(file);
-      const payload = {
-        userId: matchedUserId,
-        nationalIdHash: hashedNationalId,
-        fileBase64: base64,
-        date,
-        fileName: file.name
+      reader.onload = async function () {
+        const base64 = reader.result.split(',')[1];
+        const payload = {
+          meta: JSON.stringify({
+            userId: document.getElementById('userId').value,
+            nationalIdHash: await hash(document.getElementById('nationalId').value),
+            date: document.getElementById('date').value
+          }),
+          file: base64
+        };
+
+        const formData = new FormData();
+        formData.append('meta', payload.meta);
+        formData.append('file', file);
+
+        const upload = await fetch('https://script.google.com/macros/s/AKfycbw794LR1VS-gWJkkRV529gofIbDtglHmtNgF407if-o62L8Z_n2gDAK14TJVgqcUST1UA/exec', {
+          method: 'POST',
+          body: formData
+        });
+
+        const result = await upload.json();
+        alert(result.success ? 'อัปโหลดสำเร็จ' : 'ล้มเหลว');
       };
 
-      try {
-        const res = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
-        });
-        const result = await res.json();
-        if (result.status === "success") {
-          alert("✅ อัปโหลดสำเร็จ");
-        } else {
-          alert("❌ อัปโหลดล้มเหลว");
-        }
-      } catch (err) {
-        alert("⚠️ เชื่อมต่อไม่ได้");
-      }
+      reader.readAsDataURL(file);
     }
 
-    function toBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = error => reject(error);
-        reader.readAsDataURL(file);
-      });
+    async function hash(text) {
+      const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+      return [...new Uint8Array(buffer)].map(x => x.toString(16).padStart(2, '0')).join('');
     }
   </script>
 </body>
