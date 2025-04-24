@@ -1,103 +1,135 @@
-<!-- admin.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Panel - Health Check</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Upload</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body {
+      font-family: 'Sarabun', sans-serif;
+      background: #f9fafb;
+      padding: 2rem;
+      max-width: 500px;
+      margin: auto;
+    }
+    h2 {
+      font-size: 1.5rem;
+      text-align: center;
+      margin-bottom: 1rem;
+    }
+    input, button, label, select {
+      display: block;
+      width: 100%;
+      margin-bottom: 1rem;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: 0.5rem;
+    }
+    button {
+      background-color: #4f46e5;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .hidden { display: none; }
+    .error { color: red; text-align: center; }
+    .success { color: green; text-align: center; }
+  </style>
 </head>
-<body class="bg-gray-50 font-sans">
-  <div class="max-w-xl mx-auto mt-10 p-6 bg-white rounded-2xl shadow-md">
-    <h1 class="text-2xl font-bold mb-6">🔐 Admin Login</h1>
-    <button onclick="loginWithLine()" class="w-full bg-green-600 text-white py-2 rounded-xl shadow hover:bg-green-700">Login with LINE</button>
-  </div>
+<body>
+  <h2>ระบบอัปโหลดผลตรวจ</h2>
+  <div id="status" class="error"></div>
 
-  <div id="adminPanel" class="hidden max-w-xl mx-auto mt-10 p-6 bg-white rounded-2xl shadow-md">
-    <h2 class="text-xl font-semibold mb-4">📋 Submit Health Check Result</h2>
+  <label>เลขบัตรประชาชน</label>
+  <input type="text" id="nationalId" maxlength="13" placeholder="ใส่เลขบัตร 13 หลัก" />
+  <button onclick="checkNationalId()">ตรวจสอบ</button>
 
-    <label class="block mb-2 text-sm font-medium">Patient National ID</label>
-    <input type="text" id="nationalId" class="w-full border p-2 rounded-xl mb-4" placeholder="Enter national ID">
-    <button onclick="checkPatient()" class="bg-blue-600 text-white py-2 px-4 rounded-xl hover:bg-blue-700">Check</button>
-
-    <div id="patientInfo" class="hidden mt-4">
-      <p><strong>Name:</strong> <span id="patientName"></span></p>
-      <p><strong>User ID:</strong> <span id="patientUserId"></span></p>
-
-      <label class="block mt-4 mb-2 text-sm font-medium">Date</label>
-      <input type="date" id="testDate" class="w-full border p-2 rounded-xl mb-4">
-
-      <label class="block mb-2 text-sm font-medium">Upload Result</label>
-      <input type="file" id="resultFile" class="mb-4">
-
-      <button onclick="uploadResult()" class="bg-green-600 text-white py-2 px-4 rounded-xl hover:bg-green-700">Upload</button>
-    </div>
+  <div id="patientSection" class="hidden">
+    <div><strong>ชื่อ:</strong> <span id="patientName"></span></div>
+    <label>วันที่ตรวจ (วัน/เดือน/ปี พ.ศ.)</label>
+    <input type="text" id="testDate" placeholder="01/01/2568" />
+    <label>อัปโหลดไฟล์ผลตรวจ</label>
+    <input type="file" id="fileUpload" accept="image/*,.pdf" />
+    <button onclick="uploadResult()">บันทึกผลตรวจ</button>
   </div>
 
   <script>
-    const adminUserIds = ["Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]; // ใส่ LINE userId ของแอดมิน
-    let adminId = null;
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycby3-i9s6hTOzFs3Y714LhGX4P5TKuUAd1nFjBnCq_N3FGQ8XGOmIUKmb7UTw8szXBRKFw/exec';
+    const adminWhitelist = ['Uxxxxxxxxx']; // ใส่ userId ของ admin ที่อนุญาต
 
-    function loginWithLine() {
-      liff.init({ liffId: "2007284346-47ml8AjJ" })
-        .then(() => {
-          if (!liff.isLoggedIn()) {
-            liff.login();
-          } else {
-            const idToken = liff.getIDToken();
-            liff.getProfile().then(profile => {
-              if (adminUserIds.includes(profile.userId)) {
-                adminId = profile.userId;
-                document.querySelector("#adminPanel").classList.remove("hidden");
-                document.querySelector(".max-w-xl > button").classList.add("hidden");
-              } else {
-                alert("Access Denied: Not an Admin");
-              }
-            });
-          }
-        });
-    }
+    let liffUserId = null;
+    let selectedUserId = null;
 
-    async function checkPatient() {
-      const nationalId = document.getElementById("nationalId").value;
-      const hash = await sha256(nationalId);
-      const res = await fetch(`https://script.google.com/macros/s/AKfycbw794LR1VS-gWJkkRV529gofIbDtglHmtNgF407if-o62L8Z_n2gDAK14TJVgqcUST1UA/exec?lookupId=${nationalId}`);
-      const data = await res.json();
-      if (data.name && data.userId) {
-        document.getElementById("patientName").textContent = data.name;
-        document.getElementById("patientUserId").textContent = data.userId;
-        document.getElementById("patientInfo").classList.remove("hidden");
-      } else {
-        alert("ไม่พบข้อมูลผู้ใช้");
+    async function checkNationalId() {
+      const id = document.getElementById('nationalId').value.trim();
+      if (id.length !== 13) {
+        return showStatus('เลขบัตรไม่ถูกต้อง', true);
       }
+      const hash = await sha256(id);
+      const res = await fetch(`${scriptUrl}?action=checkUserId&nationalIdHash=${hash}`);
+      const data = await res.json();
+      if (!data.success) {
+        return showStatus('ไม่พบข้อมูลผู้ป่วย', true);
+      }
+      document.getElementById('patientName').textContent = data.name;
+      selectedUserId = data.userId;
+      showStatus('', false);
+      document.getElementById('patientSection').classList.remove('hidden');
     }
 
     async function uploadResult() {
-      const nationalId = document.getElementById("nationalId").value;
-      const userId = document.getElementById("patientUserId").textContent;
-      const date = document.getElementById("testDate").value;
-      const file = document.getElementById("resultFile").files[0];
-      const nationalIdHash = await sha256(nationalId);
+      const file = document.getElementById('fileUpload').files[0];
+      const date = document.getElementById('testDate').value.trim();
+      const id = document.getElementById('nationalId').value.trim();
+      if (!file || !date || !id || !selectedUserId) return showStatus('ข้อมูลไม่ครบ', true);
 
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("meta", JSON.stringify({ userId, nationalIdHash, date }));
-
-      const res = await fetch("https://script.google.com/macros/s/AKfycbw794LR1VS-gWJkkRV529gofIbDtglHmtNgF407if-o62L8Z_n2gDAK14TJVgqcUST1UA/exec", {
-        method: "POST",
-        body: formData
-      });
-      const result = await res.json();
-      alert(result.success ? "Upload success" : result.message);
+      const hash = await sha256(id);
+      const reader = new FileReader();
+      reader.onloadend = async function () {
+        const base64 = reader.result;
+        const body = JSON.stringify({
+          userId: selectedUserId,
+          nationalIdHash: hash,
+          date: date,
+          fileName: file.name,
+          fileBase64: base64
+        });
+        const res = await fetch(scriptUrl, {
+          method: 'POST',
+          body: body,
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        showStatus(data.status === 'success' ? 'อัปโหลดสำเร็จ' : 'เกิดข้อผิดพลาด', data.status !== 'success');
+      };
+      reader.readAsDataURL(file);
     }
 
-    async function sha256(text) {
-      const msgUint8 = new TextEncoder().encode(text);
-      const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    async function sha256(str) {
+      const buffer = new TextEncoder().encode(str);
+      const digest = await crypto.subtle.digest('SHA-256', buffer);
+      return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
     }
+
+    function showStatus(msg, isError) {
+      const el = document.getElementById('status');
+      el.textContent = msg;
+      el.className = isError ? 'error' : 'success';
+    }
+
+    async function initLiff() {
+      await liff.init({ liffId: 'YOUR_LIFF_ID' });
+      if (!liff.isLoggedIn()) liff.login();
+      const profile = await liff.getProfile();
+      liffUserId = profile.userId;
+      if (!adminWhitelist.includes(liffUserId)) {
+        document.body.innerHTML = '<div class="error">คุณไม่มีสิทธิ์เข้าถึงหน้านี้</div>';
+      }
+    }
+
+    window.onload = initLiff;
   </script>
 </body>
 </html>
