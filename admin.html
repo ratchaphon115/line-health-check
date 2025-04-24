@@ -1,63 +1,102 @@
+<!-- admin.html -->
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Admin Panel</title>
-</head>
-<body>
-  <h2>อัปโหลดผลตรวจ</h2>
-  <input type="file" id="file" />
-  <input type="text" id="userId" placeholder="userId" />
-  <input type="text" id="nationalId" placeholder="เลขบัตร ปชช." />
-  <input type="text" id="date" placeholder="วันที่ตรวจ (01/01/2567)" />
-  <button onclick="submitResult()">ส่งผลตรวจ</button>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - Health Check</title>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body class="bg-gray-50 font-sans">
+  <div class="max-w-xl mx-auto mt-10 p-6 bg-white rounded-2xl shadow-md">
+    <h1 class="text-2xl font-bold mb-6">🔐 Admin Login</h1>
+    <button onclick="loginWithLine()" class="w-full bg-green-600 text-white py-2 rounded-xl shadow hover:bg-green-700">Login with LINE</button>
+  </div>
+
+  <div id="adminPanel" class="hidden max-w-xl mx-auto mt-10 p-6 bg-white rounded-2xl shadow-md">
+    <h2 class="text-xl font-semibold mb-4">📋 Submit Health Check Result</h2>
+
+    <label class="block mb-2 text-sm font-medium">Patient National ID</label>
+    <input type="text" id="nationalId" class="w-full border p-2 rounded-xl mb-4" placeholder="Enter national ID">
+    <button onclick="checkPatient()" class="bg-blue-600 text-white py-2 px-4 rounded-xl hover:bg-blue-700">Check</button>
+
+    <div id="patientInfo" class="hidden mt-4">
+      <p><strong>Name:</strong> <span id="patientName"></span></p>
+      <p><strong>User ID:</strong> <span id="patientUserId"></span></p>
+
+      <label class="block mt-4 mb-2 text-sm font-medium">Date</label>
+      <input type="date" id="testDate" class="w-full border p-2 rounded-xl mb-4">
+
+      <label class="block mb-2 text-sm font-medium">Upload Result</label>
+      <input type="file" id="resultFile" class="mb-4">
+
+      <button onclick="uploadResult()" class="bg-green-600 text-white py-2 px-4 rounded-xl hover:bg-green-700">Upload</button>
+    </div>
+  </div>
+
   <script>
-    async function submitResult() {
-      await liff.init({ liffId: 'your-liff-id' });
-      if (!liff.isLoggedIn()) return liff.login();
+    const adminUserIds = ["Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"]; // ใส่ LINE userId ของแอดมิน
+    let adminId = null;
 
-      const userId = liff.getDecodedIDToken().sub;
-
-      const res = await fetch(`https://script.google.com/macros/s/AKfycbw794LR1VS-gWJkkRV529gofIbDtglHmtNgF407if-o62L8Z_n2gDAK14TJVgqcUST1UA/exec?action=isAdmin&userId=${userId}`);
-      const data = await res.json();
-
-      if (!data.success) return alert("ไม่ใช่แอดมิน");
-
-      const fileInput = document.getElementById('file');
-      const file = fileInput.files[0];
-      const reader = new FileReader();
-
-      reader.onload = async function () {
-        const base64 = reader.result.split(',')[1];
-        const payload = {
-          meta: JSON.stringify({
-            userId: document.getElementById('userId').value,
-            nationalIdHash: await hash(document.getElementById('nationalId').value),
-            date: document.getElementById('date').value
-          }),
-          file: base64
-        };
-
-        const formData = new FormData();
-        formData.append('meta', payload.meta);
-        formData.append('file', file);
-
-        const upload = await fetch('https://script.google.com/macros/s/AKfycbw794LR1VS-gWJkkRV529gofIbDtglHmtNgF407if-o62L8Z_n2gDAK14TJVgqcUST1UA/exec', {
-          method: 'POST',
-          body: formData
+    function loginWithLine() {
+      liff.init({ liffId: "YOUR_LIFF_ID" })
+        .then(() => {
+          if (!liff.isLoggedIn()) {
+            liff.login();
+          } else {
+            const idToken = liff.getIDToken();
+            liff.getProfile().then(profile => {
+              if (adminUserIds.includes(profile.userId)) {
+                adminId = profile.userId;
+                document.querySelector("#adminPanel").classList.remove("hidden");
+                document.querySelector(".max-w-xl > button").classList.add("hidden");
+              } else {
+                alert("Access Denied: Not an Admin");
+              }
+            });
+          }
         });
-
-        const result = await upload.json();
-        alert(result.success ? 'อัปโหลดสำเร็จ' : 'ล้มเหลว');
-      };
-
-      reader.readAsDataURL(file);
     }
 
-    async function hash(text) {
-      const buffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-      return [...new Uint8Array(buffer)].map(x => x.toString(16).padStart(2, '0')).join('');
+    async function checkPatient() {
+      const nationalId = document.getElementById("nationalId").value;
+      const hash = await sha256(nationalId);
+      const res = await fetch(`https://script.google.com/macros/s/AKfycbw794LR1VS-gWJkkRV529gofIbDtglHmtNgF407if-o62L8Z_n2gDAK14TJVgqcUST1UA/exec?lookupId=${nationalId}`);
+      const data = await res.json();
+      if (data.name && data.userId) {
+        document.getElementById("patientName").textContent = data.name;
+        document.getElementById("patientUserId").textContent = data.userId;
+        document.getElementById("patientInfo").classList.remove("hidden");
+      } else {
+        alert("ไม่พบข้อมูลผู้ใช้");
+      }
+    }
+
+    async function uploadResult() {
+      const nationalId = document.getElementById("nationalId").value;
+      const userId = document.getElementById("patientUserId").textContent;
+      const date = document.getElementById("testDate").value;
+      const file = document.getElementById("resultFile").files[0];
+      const nationalIdHash = await sha256(nationalId);
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("meta", JSON.stringify({ userId, nationalIdHash, date }));
+
+      const res = await fetch("https://script.google.com/macros/s/AKfycbw794LR1VS-gWJkkRV529gofIbDtglHmtNgF407if-o62L8Z_n2gDAK14TJVgqcUST1UA/exec", {
+        method: "POST",
+        body: formData
+      });
+      const result = await res.json();
+      alert(result.success ? "Upload success" : result.message);
+    }
+
+    async function sha256(text) {
+      const msgUint8 = new TextEncoder().encode(text);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", msgUint8);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
   </script>
 </body>
