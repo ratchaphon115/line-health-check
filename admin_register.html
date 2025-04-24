@@ -9,7 +9,7 @@
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script>
     async function login() {
-      await liff.init({ liffId: 'your-liff-id' });
+      await liff.init({ liffId: 'https://ratchaphon115.github.io/line-health-check/admin_register.html' });
       if (!liff.isLoggedIn()) liff.login();
       else {
         const profile = await liff.getProfile();
