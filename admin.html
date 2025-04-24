@@ -5,99 +5,30 @@
   <title>Admin | อัปโหลดผลตรวจสุขภาพ</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    :root {
-      --primary: #0d9488;
-      --bg: #f9fafb;
-      --text: #111827;
-      --border: #e5e7eb;
-      --success: #10b981;
-      --error: #ef4444;
-    }
-    body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      padding: 2rem;
-      max-width: 600px;
-      margin: auto;
-    }
-    h2 {
-      color: var(--primary);
-      margin-bottom: 1rem;
-    }
-    label {
-      display: block;
-      margin: 1rem 0 0.3rem;
-      font-weight: 500;
-    }
-    input, button, #drop-zone {
-      width: 100%;
-      padding: 0.75rem;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      box-sizing: border-box;
-      margin-bottom: 1rem;
-      font-size: 1rem;
-    }
-    input:focus, button:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
-    button {
-      background-color: var(--primary);
-      color: white;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background-color 0.2s;
-    }
-    button:hover {
-      background-color: #0f766e;
-    }
-    #drop-zone {
-      border: 2px dashed var(--border);
-      background-color: white;
-      text-align: center;
-      color: #6b7280;
-      transition: background 0.2s;
-    }
-    #drop-zone.hover {
-      background-color: #ecfdf5;
-      border-color: var(--primary);
-      color: var(--primary);
-    }
-    #fileInfo, #userInfo {
-      margin-top: -0.5rem;
-      font-size: 0.9rem;
-      color: #374151;
-    }
-    .success {
-      color: var(--success);
-    }
-    .error {
-      color: var(--error);
-    }
+    body { font-family: sans-serif; max-width: 600px; margin: auto; padding: 1rem; }
+    h2 { color: teal; }
+    input, button { width: 100%; padding: 0.5rem; margin-bottom: 1rem; }
+    .success { color: green; }
+    .error { color: red; }
   </style>
 </head>
 <body>
   <h2>📤 อัปโหลดผลตรวจสุขภาพ</h2>
-
   <label>เลขบัตรประชาชน</label>
-  <input type="text" id="nationalId" maxlength="13" placeholder="กรอก 13 หลัก" />
+  <input type="text" id="nationalId" maxlength="13" />
   <button onclick="checkNationalId()">ตรวจสอบ</button>
   <p id="userInfo"></p>
 
   <label>วันที่ตรวจ</label>
   <input type="date" id="checkDate" />
 
-  <label>ผลตรวจ (PDF / รูปภาพ)</label>
-  <div id="drop-zone">ลากไฟล์มาวางที่นี่ หรือกด Ctrl+V เพื่อวาง</div>
-  <p id="fileInfo"></p>
+  <label>เลือกไฟล์ผลตรวจ</label>
+  <input type="file" id="fileInput" />
 
   <button onclick="uploadResult()">✅ อัปโหลดผลตรวจ</button>
 
   <script>
-    const endpoint = "https://script.google.com/macros/s/AKfycbxBVkGgqUTB7H2aHgXdKUDfdG3SCM733WAz-sMm67UdEN7XeTBlWIvzqoWc88IOtYb_rg/exec";
-    let selectedFile = null;
+    const endpoint = "https://script.google.com/macros/s/AKfycbxKtM8_vFlVIMNiuSh6g4DlzxUMpdiL7toOtZkbKXiPi3nKbGsNsaQ4T-9loC7KuQR4ig/exec";
     let matchedUserId = null;
     let hashedNationalId = null;
 
@@ -111,6 +42,7 @@
       const id = document.getElementById("nationalId").value.trim();
       if (id.length !== 13) return alert("กรุณากรอกเลขบัตรให้ครบ 13 หลัก");
       hashedNationalId = await sha256(id);
+
       try {
         const res = await fetch(`${endpoint}?action=checkUserId&nationalIdHash=${hashedNationalId}`);
         const data = await res.json();
@@ -119,67 +51,54 @@
           document.getElementById("userInfo").innerHTML = `✅ พบผู้ใช้: <strong>${data.name}</strong>`;
           document.getElementById("userInfo").className = "success";
         } else {
+          matchedUserId = null;
           document.getElementById("userInfo").textContent = "❌ ไม่พบข้อมูลในระบบ";
           document.getElementById("userInfo").className = "error";
-          matchedUserId = null;
         }
       } catch (err) {
-        document.getElementById("userInfo").textContent = "เกิดข้อผิดพลาดในการเชื่อมต่อ";
-        document.getElementById("userInfo").className = "error";
+        console.error(err);
+        document.getElementById("userInfo").textContent = "เกิดข้อผิดพลาด";
       }
     }
 
-    const dropZone = document.getElementById("drop-zone");
-    dropZone.addEventListener("dragover", e => {
-      e.preventDefault();
-      dropZone.classList.add("hover");
-    });
-    dropZone.addEventListener("dragleave", () => dropZone.classList.remove("hover"));
-    dropZone.addEventListener("drop", e => {
-      e.preventDefault();
-      dropZone.classList.remove("hover");
-      selectedFile = e.dataTransfer.files[0];
-      document.getElementById("fileInfo").textContent = `📎 ไฟล์: ${selectedFile.name}`;
-    });
-    document.addEventListener("paste", e => {
-      const items = e.clipboardData.items;
-      for (let item of items) {
-        if (item.kind === "file") {
-          selectedFile = item.getAsFile();
-          document.getElementById("fileInfo").textContent = `📎 ไฟล์: ${selectedFile.name}`;
-        }
-      }
-    });
-
     async function uploadResult() {
-      if (!matchedUserId || !selectedFile || !hashedNationalId) {
-        return alert("กรุณากรอกข้อมูลให้ครบ");
-      }
+      const file = document.getElementById("fileInput").files[0];
       const date = document.getElementById("checkDate").value;
-      if (!date) return alert("กรุณาเลือกวันที่ตรวจ");
+      if (!file || !date || !matchedUserId) return alert("ข้อมูลไม่ครบ");
 
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-      formData.append("userId", matchedUserId);
-      formData.append("nationalIdHash", hashedNationalId);
-      formData.append("date", date);
+      const base64 = await toBase64(file);
+      const payload = {
+        userId: matchedUserId,
+        nationalIdHash: hashedNationalId,
+        fileBase64: base64,
+        date,
+        fileName: file.name
+      };
 
       try {
         const res = await fetch(endpoint, {
           method: "POST",
-          body: formData
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
         });
         const result = await res.json();
         if (result.status === "success") {
-          alert("✅ อัปโหลดผลตรวจเรียบร้อยแล้ว");
-          document.getElementById("fileInfo").textContent = "";
-          selectedFile = null;
+          alert("✅ อัปโหลดสำเร็จ");
         } else {
-          alert("❌ เกิดข้อผิดพลาดในการอัปโหลด");
+          alert("❌ อัปโหลดล้มเหลว");
         }
       } catch (err) {
-        alert("⚠️ ไม่สามารถเชื่อมต่อกับระบบได้");
+        alert("⚠️ เชื่อมต่อไม่ได้");
       }
+    }
+
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
+      });
     }
   </script>
 </body>
