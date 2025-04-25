@@ -2,102 +2,92 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
+  <title>ลงทะเบียนแอดมิน</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Admin Registration</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body {
-      font-family: sans-serif;
-      max-width: 500px;
-      margin: 40px auto;
+      font-family: "Sarabun", sans-serif;
+      background-color: #f9fafb;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: white;
       padding: 2rem;
-      background: #f9f9f9;
-      border-radius: 1rem;
-      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      border-radius: 1.5rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+      width: 100%;
+      max-width: 400px;
     }
     h2 {
+      font-size: 1.5rem;
+      margin-bottom: 1.5rem;
       text-align: center;
-      margin-bottom: 2rem;
     }
     label {
       display: block;
-      margin-bottom: 0.5rem;
       font-weight: 600;
+      margin-bottom: 0.5rem;
     }
     input {
       width: 100%;
       padding: 0.75rem;
-      border-radius: 0.5rem;
       border: 1px solid #ccc;
+      border-radius: 0.75rem;
       margin-bottom: 1rem;
+      font-size: 1rem;
     }
     button {
       width: 100%;
-      background-color: #06c755;
-      color: white;
       padding: 0.75rem;
       font-size: 1rem;
-      font-weight: bold;
+      background: #16a34a;
+      color: white;
       border: none;
-      border-radius: 0.5rem;
+      border-radius: 0.75rem;
       cursor: pointer;
     }
-    button:disabled {
-      background-color: #ccc;
+    button:hover {
+      background: #15803d;
     }
   </style>
 </head>
 <body>
-  <h2>ลงทะเบียนผู้ดูแลระบบ</h2>
-  <form id="adminForm">
-    <label for="name">ชื่อ - สกุล</label>
-    <input type="text" id="name" required />
-    <button type="submit">ลงทะเบียน</button>
-  </form>
+  <div class="card">
+    <h2>ลงทะเบียนแอดมิน</h2>
+    <form
+      id="adminForm"
+      method="POST"
+      action="https://script.google.com/macros/s/AKfycbzWMIuhS6uBctk-rW9A0qz5GSmB4EEeYC_YdBGLXwWuvd2U5IK7aeQOfZdultvnLAg6sw/exec"
+    >
+      <label for="name">ชื่อ - สกุล</label>
+      <input type="text" id="name" name="name" required />
+
+      <input type="hidden" id="userId" name="userId" />
+
+      <button type="submit">ลงทะเบียน</button>
+    </form>
+  </div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbz05x7GHAkDuvUKXYN4iZDhVSLTGaAmR66ASMTl2InfY9b_TOO43tS_1FZpiFdPH_p8yg/exec"; // ใช้ URL ของ admin.gs ที่ deploy แบบ Web App แล้ว
-
-    let userId = null;
-
     async function initLiff() {
-      await liff.init({ liffId: "2007284346-yPRgqlkx" }); // แทนที่ด้วย LIFF ID ของคุณ
-      if (!liff.isLoggedIn()) {
-        liff.login();
-      } else {
-        const profile = await liff.getProfile();
-        userId = liff.getContext().userId || profile.userId;
-        console.log("Logged in as:", userId);
-      }
-    }
-
-    document.getElementById("adminForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const name = document.getElementById("name").value.trim();
-
-      if (!name || !userId) {
-        alert("กรอกข้อมูลให้ครบถ้วนก่อนส่ง");
-        return;
-      }
-
       try {
-        const res = await fetch(GAS_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, userId }),
-        });
-        const result = await res.json();
-        if (result.success) {
-          alert("ลงทะเบียนสำเร็จ");
-          liff.closeWindow();
+        await liff.init({ liffId: "2007284346-yPRgqlkx" }); // <== แก้เป็น LIFF ID จริงของคุณ
+        if (!liff.isLoggedIn()) {
+          liff.login();
         } else {
-          alert("ลงทะเบียนไม่สำเร็จ: " + result.message);
+          const profile = await liff.getProfile();
+          const userId = profile.userId || liff.getContext()?.userId;
+          document.getElementById("userId").value = userId;
         }
       } catch (err) {
-        console.error(err);
-        alert("เกิดข้อผิดพลาดในการส่งข้อมูล");
+        alert("ไม่สามารถโหลด LIFF ได้: " + err.message);
       }
-    });
+    }
 
     window.onload = initLiff;
   </script>
