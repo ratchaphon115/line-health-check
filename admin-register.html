@@ -1,99 +1,105 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>ลงทะเบียนแอดมิน</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Registration</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <style>
     body {
       font-family: sans-serif;
-      background: #f9f9f9;
+      max-width: 500px;
+      margin: 40px auto;
       padding: 2rem;
-      max-width: 400px;
-      margin: auto;
+      background: #f9f9f9;
+      border-radius: 1rem;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
     }
-
     h2 {
       text-align: center;
-      margin-bottom: 1.5rem;
+      margin-bottom: 2rem;
     }
-
-    input, button {
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+    }
+    input {
       width: 100%;
-      padding: 0.8rem;
-      margin-bottom: 1rem;
-      font-size: 1rem;
-      border-radius: 8px;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
       border: 1px solid #ccc;
-      box-sizing: border-box;
+      margin-bottom: 1rem;
     }
-
     button {
+      width: 100%;
       background-color: #06c755;
       color: white;
+      padding: 0.75rem;
+      font-size: 1rem;
+      font-weight: bold;
       border: none;
+      border-radius: 0.5rem;
       cursor: pointer;
     }
-
-    button:hover {
-      background-color: #04a94f;
-    }
-
-    .hidden {
-      display: none;
-    }
-
-    .message {
-      text-align: center;
-      margin-top: 1rem;
+    button:disabled {
+      background-color: #ccc;
     }
   </style>
 </head>
 <body>
-  <h2>ลงทะเบียนแอดมิน</h2>
-
-  <input type="text" id="name" placeholder="ชื่อ-สกุล" required />
-  <button onclick="register()">ลงทะเบียน</button>
-
-  <div class="message" id="message"></div>
+  <h2>ลงทะเบียนผู้ดูแลระบบ</h2>
+  <form id="adminForm">
+    <label for="name">ชื่อ - สกุล</label>
+    <input type="text" id="name" required />
+    <button type="submit">ลงทะเบียน</button>
+  </form>
 
   <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby3-i9s6hTOzFs3Y714LhGX4P5TKuUAd1nFjBnCq_N3FGQ8XGOmIUKmb7UTw8szXBRKFw/exec';
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz05x7GHAkDuvUKXYN4iZDhVSLTGaAmR66ASMTl2InfY9b_TOO43tS_1FZpiFdPH_p8yg/exec"; // ใช้ URL ของ admin.gs ที่ deploy แบบ Web App แล้ว
 
     let userId = null;
 
-    async function main() {
-      await liff.init({ liffId: '2007284346-yPRgqlkx' });
-      if (!liff.isLoggedIn()) liff.login();
-      const profile = await liff.getProfile();
-      userId = profile.userId;
-    }
-
-    async function register() {
-      const name = document.getElementById('name').value.trim();
-      if (!name) return alert("กรุณากรอกชื่อ");
-
-      const res = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        body: JSON.stringify({
-          action: 'registerAdmin',
-          name,
-          userId
-        }),
-        headers: { 'Content-Type': 'application/json' }
-      });
-
-      const data = await res.json();
-      const msg = document.getElementById('message');
-      if (data.success) {
-        msg.innerText = "✅ ลงทะเบียนสำเร็จ";
+    async function initLiff() {
+      await liff.init({ liffId: "2007284346-yPRgqlkx" }); // แทนที่ด้วย LIFF ID ของคุณ
+      if (!liff.isLoggedIn()) {
+        liff.login();
       } else {
-        msg.innerText = "❌ " + (data.message || "ลงทะเบียนไม่สำเร็จ");
+        const profile = await liff.getProfile();
+        userId = liff.getContext().userId || profile.userId;
+        console.log("Logged in as:", userId);
       }
     }
 
-    main();
+    document.getElementById("adminForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = document.getElementById("name").value.trim();
+
+      if (!name || !userId) {
+        alert("กรอกข้อมูลให้ครบถ้วนก่อนส่ง");
+        return;
+      }
+
+      try {
+        const res = await fetch(GAS_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, userId }),
+        });
+        const result = await res.json();
+        if (result.success) {
+          alert("ลงทะเบียนสำเร็จ");
+          liff.closeWindow();
+        } else {
+          alert("ลงทะเบียนไม่สำเร็จ: " + result.message);
+        }
+      } catch (err) {
+        console.error(err);
+        alert("เกิดข้อผิดพลาดในการส่งข้อมูล");
+      }
+    });
+
+    window.onload = initLiff;
   </script>
 </body>
 </html>
