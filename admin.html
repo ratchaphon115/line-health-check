@@ -68,7 +68,7 @@
         return showStatus('เลขบัตรไม่ถูกต้อง', true);
       }
       const hash = await sha256(id);
-      const res = await fetch(`${scriptUrl}?action=checkUserId&nationalIdHash=${hash}`);
+      const res = await fetch(`${scriptUrl}?action=checkNationalId&nationalIdHash=${hash}`);
       const data = await res.json();
       if (!data.success) {
         return showStatus('ไม่พบข้อมูลผู้ป่วย', true);
