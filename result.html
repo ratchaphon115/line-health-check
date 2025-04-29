@@ -53,7 +53,6 @@
 
         console.log("✅ LINE userId:", userId);
 
-        // เรียกข้อมูลด้วย POST (แก้ CORS)
         const body = new URLSearchParams({ userId });
 
         const res = await fetch(appsScriptUrl, {
@@ -113,7 +112,17 @@
 
       if (!found) return showAlert("❌ ไม่พบผลตรวจที่ตรงกัน", "danger");
 
-      document.getElementById("resultImage").src = found.resultImageUrl;
+      let imgUrl = found.resultImageUrl;
+
+      // ✅ แปลงลิงก์ Google Drive เป็นแบบ direct link
+      if (imgUrl.includes("drive.google.com/file/d/")) {
+        const match = imgUrl.match(/\/d\/([^\/]+)\//);
+        if (match && match[1]) {
+          imgUrl = `https://drive.google.com/uc?id=${match[1]}`;
+        }
+      }
+
+      document.getElementById("resultImage").src = imgUrl;
       document.getElementById("resultSection").style.display = "block";
     });
 
