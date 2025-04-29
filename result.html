@@ -81,11 +81,25 @@
           return showAlert("⚠️ ไม่มีวันที่ตรวจในข้อมูลของคุณ", "warning");
         }
 
-        [...dateSet].sort().forEach(date => {
-          const option = document.createElement("option");
-          option.value = date;
-          option.textContent = date;
-          dateSelect.appendChild(option);
+        // แปลงวันที่เป็น วัน/เดือน/ปี (พ.ศ.)
+        [...dateSet].sort().forEach(dateStr => {
+          const date = new Date(dateStr);
+          if (!isNaN(date)) {
+            const day = date.getDate();
+            const month = date.getMonth() + 1;
+            const year = date.getFullYear() + 543;
+            const display = `${day}/${month.toString().padStart(2, '0')}/${year}`;
+            const option = document.createElement("option");
+            option.value = dateStr;
+            option.textContent = display;
+            dateSelect.appendChild(option);
+          } else {
+            // fallback กรณีแปลงไม่ได้
+            const option = document.createElement("option");
+            option.value = dateStr;
+            option.textContent = dateStr;
+            dateSelect.appendChild(option);
+          }
         });
 
         document.getElementById("resultCard").style.display = "block";
