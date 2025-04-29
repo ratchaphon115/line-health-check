@@ -1,61 +1,129 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="th">
 <head>
   <meta charset="UTF-8">
-  <title>Admin Upload Page</title>
+  <title>เพิ่มผลตรวจผู้ป่วย</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script src="https://cdn.jsdelivr.net/npm/js-sha256@0.9.0/src/sha256.min.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; margin: 2rem; }
-    input, button { margin: 0.5rem 0; padding: 0.5rem; width: 100%; }
-    #result { margin-top: 1rem; color: green; }
-    #error { margin-top: 1rem; color: red; }
+    body {
+      font-family: "Prompt", sans-serif;
+      background: #f4f4f4;
+      padding: 2rem;
+    }
+    .container {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    input, button {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      border: 1px solid #ccc;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      font-weight: bold;
+      border: none;
+    }
   </style>
 </head>
 <body>
-  <h1>ตรวจสอบหมายเลขบัตรประชาชน</h1>
 
-  <input type="text" id="nationalIdInput" placeholder="กรอกเลขบัตรประชาชน (13 หลัก)" maxlength="13">
-  <button onclick="checkNationalId()">ตรวจสอบข้อมูล</button>
+<div class="container">
+  <h2>ค้นหาและเพิ่มผลตรวจผู้ป่วย</h2>
+  <input type="text" id="nationalIdInput" placeholder="กรอกเลขบัตรประชาชน 13 หลัก" />
+  <button onclick="searchPatient()">ค้นหา</button>
 
-  <div id="result"></div>
-  <div id="error"></div>
+  <div id="formSection" style="display:none;">
+    <p id="patientInfo"></p>
+    <input type="date" id="dateInput" />
+    <input type="file" id="fileInput" />
+    <button onclick="submitResult()">บันทึกผลตรวจ</button>
+  </div>
+</div>
 
-  <script>
-    async function checkNationalId() {
-      const nationalId = document.getElementById('nationalIdInput').value.trim();
-      const resultDiv = document.getElementById('result');
-      const errorDiv = document.getElementById('error');
-      resultDiv.textContent = '';
-      errorDiv.textContent = '';
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbynHmK_bmCqxVJJFgbZScBgGP2soLkXU_tr9SPKx4DyZqezsn6gYgNWlrXb7po4A1p7/exec";
+let foundUserId = "", nationalIdHash = "";
 
-      if (!nationalId || nationalId.length !== 13) {
-        errorDiv.textContent = 'กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง (13 หลัก)';
-        return;
-      }
-
-      const nationalIdHash = await sha256(nationalId);
-      const url = 'https://script.google.com/macros/s/AKfycbw98GJjQWedgzab9SLCBCtaGTT0SFM3J0KbIKIdCjyiYM4u1-TQWGS2ca0cmdDZdnwhaA/exec?action=checkNationalId&nationalIdHash=' + nationalIdHash;
-
-      try {
-        const response = await fetch(url);
-        const data = await response.json();
-        if (data.success) {
-          resultDiv.textContent = `พบข้อมูล: ${data.name}`;
-        } else {
-          errorDiv.textContent = 'ไม่พบข้อมูลในระบบ';
-        }
-      } catch (error) {
-        console.error('Fetch error:', error);
-        errorDiv.textContent = 'เกิดข้อผิดพลาดในการเชื่อมต่อ';
-      }
+  async function searchPatient() {
+    const nationalId = document.getElementById("nationalIdInput").value.trim();
+    if (!/^\d{13}$/.test(nationalId)) {
+      Swal.fire("กรุณากรอกเลขบัตรประชาชนให้ถูกต้อง (13 หลัก)");
+      return;
     }
 
-    async function sha256(message) {
-      const msgBuffer = new TextEncoder().encode(message);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-      return hashHex;
+    nationalIdHash = sha256(nationalId);
+    const res = await fetch(`${API_URL}?lookupId=${nationalIdHash}`);
+    const data = await res.json();
+
+    if (data.name && data.userId) {
+      foundUserId = data.userId;
+      document.getElementById("patientInfo").innerHTML = `ชื่อ: <b>${data.name}</b><br>userId: <code>${data.userId}</code>`;
+      document.getElementById("formSection").style.display = "block";
+    } else {
+      Swal.fire("ไม่พบข้อมูล", "ไม่มีเลขบัตรนี้ในระบบ กรุณาลงทะเบียนก่อน", "error");
     }
-  </script>
+  }
+
+  async function submitResult() {
+  const file = document.getElementById("fileInput").files[0];
+  const date = document.getElementById("dateInput").value;
+  if (!file || !date) {
+    Swal.fire("กรุณาเลือกวันที่และอัปโหลดไฟล์");
+    return;
+  }
+
+  const base64 = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  const payload = {
+    meta: {
+      userId: foundUserId,
+      nationalIdHash,
+      date,
+      filename: file.name,
+      mimeType: file.type,
+      base64
+    }
+  };
+
+  Swal.fire({ title: 'กำลังอัปโหลด...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    const result = await res.json();
+    Swal.close();
+
+    if (result.success) {
+      Swal.fire("สำเร็จ", "บันทึกผลตรวจแล้ว", "success");
+      document.getElementById("formSection").style.display = "none";
+    } else {
+      throw new Error(result.message || "ไม่สามารถบันทึกข้อมูลได้");
+    }
+  } catch (err) {
+    Swal.close();
+    Swal.fire("เกิดข้อผิดพลาด", err.message, "error");
+  }
+}
+
+</script>
+
 </body>
 </html>
