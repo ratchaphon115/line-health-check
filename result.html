@@ -36,8 +36,8 @@
   </div>
 
   <script>
-    const liffId = "2007284346-Kb68WM5d"; // ใส่ LIFF ID ของคุณ
-    const appsScriptUrl = "https://script.google.com/macros/s/AKfycbxMaWRmec7lc5uiBeQKjix_xmIqFEJanxJmukdXADL4qBKuVRWsPPdzi1TzNUejZMgl/exec";
+    const liffId = "2007284346-Kb68WM5d"; // <-- แก้เป็น LIFF ID ของคุณ
+    const appsScriptUrl = "https://script.google.com/macros/s/AKfycbz4CFN0qyxJffUc7YqzI_1gUEgv2PDzkbsVeI7ORXHhFujw_k9WKpYk5F6zbdK4ESvL/exec"; // <-- แก้เป็น URL ของ Web App ของคุณ
 
     let userId = "";
     let resultData = [];
@@ -51,39 +51,26 @@
         document.getElementById("lineName").innerText = profile.displayName;
         userId = profile.userId;
 
-        console.log("✅ LINE userId:", userId);
-
         const body = new URLSearchParams({ userId });
 
         const res = await fetch(appsScriptUrl, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: body.toString()
         });
 
         const allData = await res.json();
-        console.log("📦 ข้อมูลที่ได้:", allData);
-
         resultData = allData;
 
-        if (resultData.length === 0) {
-          return showAlert("❌ ยังไม่มีผลตรวจของคุณ", "danger");
-        }
+        if (resultData.length === 0) return showAlert("❌ ยังไม่มีผลตรวจของคุณ", "danger");
 
         const dateSet = new Set();
         resultData.forEach(row => {
-          if (row.date && row.date.toString().trim() !== "") {
-            dateSet.add(row.date.toString().trim());
-          }
+          if (row.date?.trim()) dateSet.add(row.date.trim());
         });
 
         const dateSelect = document.getElementById("dateSelect");
-
-        if (dateSet.size === 0) {
-          return showAlert("⚠️ ไม่มีวันที่ตรวจในข้อมูลของคุณ กรุณาตรวจสอบใน Google Sheet", "warning");
-        }
+        if (dateSet.size === 0) return showAlert("⚠️ ไม่มีวันที่ตรวจ กรุณาตรวจสอบข้อมูล", "warning");
 
         [...dateSet].sort().forEach(date => {
           const option = document.createElement("option");
@@ -112,17 +99,10 @@
 
       if (!found) return showAlert("❌ ไม่พบผลตรวจที่ตรงกัน", "danger");
 
-      let imgUrl = found.resultImageUrl;
+      const fileId = found.resultImageUrl.split("/d/")[1]?.split("/")[0];
+      const imageUrl = `${appsScriptUrl}?fileId=${fileId}`;
 
-      // ✅ แปลงลิงก์ Google Drive เป็นแบบ direct link
-      if (imgUrl.includes("drive.google.com/file/d/")) {
-        const match = imgUrl.match(/\/d\/([^\/]+)\//);
-        if (match && match[1]) {
-          imgUrl = `https://drive.google.com/uc?id=${match[1]}`;
-        }
-      }
-
-      document.getElementById("resultImage").src = imgUrl;
+      document.getElementById("resultImage").src = imageUrl;
       document.getElementById("resultSection").style.display = "block";
     });
 
