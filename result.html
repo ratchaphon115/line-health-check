@@ -37,7 +37,7 @@
 
   <script>
     const liffId = "2007284346-Kb68WM5d"; // ใส่ LIFF ID ของคุณ
-    const appsScriptUrl = "https://script.google.com/macros/s/AKfycbzpISunZhz9pMbo7RtlNsnBY9-0XC0UrgzIsIZXGZSqQ4jxw2zzim3aHo39RByYdjtA/exec";
+    const appsScriptUrl = "https://script.google.com/macros/s/AKfycbycw3EDQtnWDdWp_X4nVzExThuTjzzO5pdxbkvX-mBa_IaUVFE-R8lg5YcpW5ZQmyahhw/exec";
 
     let userId = "";
     let resultData = [];
@@ -120,7 +120,7 @@
     function showAlert(msg, type) {
       const box = document.getElementById("alertBox");
       box.textContent = msg;
-      box.className = alert alert-${type} text-center;
+      box.className = `alert alert-${type} text-center`;
       box.classList.remove("d-none");
     }
   </script>
