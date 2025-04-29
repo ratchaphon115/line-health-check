@@ -1,72 +1,83 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ดูผลตรวจสุขภาพ</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ผลตรวจสุขภาพ</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f0f4f8;
+    }
+    .container {
+      max-width: 500px;
+      margin-top: 30px;
+    }
+    #resultContainer img {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
 </head>
-<body class="bg-light">
-  <div class="container mt-5">
-    <div id="alertBox" class="alert d-none text-center" role="alert"></div>
+<body>
+  <div class="container">
+    <h3 class="mb-3 text-center">📋 ตรวจผลสุขภาพ</h3>
 
-    <div class="card shadow-lg p-4" id="resultCard" style="display:none;">
-      <h3 class="mb-3 text-center">ดูผลตรวจสุขภาพ</h3>
-      <p class="text-center">สวัสดีคุณ <strong><span id="lineName">...</span></strong></p>
+    <div id="alertBox"></div>
 
-      <div class="mb-3">
-        <label for="dateSelect" class="form-label">เลือกวันที่ตรวจ</label>
-        <select class="form-select" id="dateSelect" required></select>
-      </div>
+    <div id="resultCard" style="display: none;">
+      <p>👤 ชื่อจาก LINE: <strong id="lineName">-</strong></p>
 
-      <div class="mb-3">
-        <label for="nationalId" class="form-label">ยืนยันเลขบัตรประชาชน (13 หลัก)</label>
-        <input type="text" class="form-control" id="nationalId" maxlength="13" required />
-      </div>
+      <label for="dateSelect" class="form-label">📅 เลือกวันที่ตรวจ:</label>
+      <select id="dateSelect" class="form-select mb-3">
+        <option value="">-- เลือกวันที่ --</option>
+      </select>
 
-      <button id="viewResultBtn" class="btn btn-primary w-100">ดูผลตรวจ</button>
+      <label for="nationalId" class="form-label">🆔 กรอกเลขบัตรประชาชน:</label>
+      <input type="text" class="form-control mb-3" id="nationalId" placeholder="13 หลัก">
 
-      <div id="resultSection" class="mt-4 text-center" style="display:none;">
-        <h5>ผลตรวจของคุณ</h5>
-        <img id="resultImage" src="" class="img-fluid rounded shadow" alt="ผลตรวจ" />
-      </div>
+      <button id="checkBtn" class="btn btn-primary w-100 mb-3">🔍 ตรวจสอบผล</button>
+
+      <div id="resultContainer" class="text-center"></div>
     </div>
   </div>
 
+  <!-- LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
   <script>
-    const liffId = "2007284346-Kb68WM5d"; // ใส่ LIFF ID ของคุณ
-    const appsScriptUrl = "https://script.google.com/macros/s/AKfycbycw3EDQtnWDdWp_X4nVzExThuTjzzO5pdxbkvX-mBa_IaUVFE-R8lg5YcpW5ZQmyahhw/exec";
+    const liffId = "2007284346-Kb68WM5d"; // <-- เปลี่ยนเป็นของคุณ
+    const appsScriptUrl = "AKfycbwl3zj8FIQQ12zmpELIG15lcNgxAB8OubrhQqAWDNTaS00eEKMxpiyLtNUWmkm9Mif9"; // <-- เปลี่ยนเป็นของคุณ
 
     let userId = "";
     let resultData = [];
 
+    async function sha256(message) {
+      const msgBuffer = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function showAlert(message, type = "info") {
+      document.getElementById("alertBox").innerHTML = `
+        <div class="alert alert-${type}" role="alert">
+          ${message}
+        </div>`;
+    }
+
     document.addEventListener("DOMContentLoaded", async () => {
       try {
         await liff.init({ liffId });
-        if (!liff.isLoggedIn()) return liff.login();
+        if (!liff.isLoggedIn()) liff.login();
 
         const profile = await liff.getProfile();
         document.getElementById("lineName").innerText = profile.displayName;
         userId = profile.userId;
 
-        console.log("✅ LINE userId:", userId);
-
-        // เรียกข้อมูลด้วย POST (แก้ CORS)
-        const body = new URLSearchParams({ userId });
-
-        const res = await fetch(appsScriptUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
-          body: body.toString()
-        });
-
+        const res = await fetch(`${appsScriptUrl}?action=getResults&userId=${encodeURIComponent(userId)}`);
         const allData = await res.json();
-        console.log("📦 ข้อมูลที่ได้:", allData);
-
         resultData = allData;
 
         if (resultData.length === 0) {
@@ -81,11 +92,6 @@
         });
 
         const dateSelect = document.getElementById("dateSelect");
-
-        if (dateSet.size === 0) {
-          return showAlert("⚠️ ไม่มีวันที่ตรวจในข้อมูลของคุณ กรุณาตรวจสอบใน Google Sheet", "warning");
-        }
-
         [...dateSet].sort().forEach(date => {
           const option = document.createElement("option");
           option.value = date;
@@ -95,34 +101,39 @@
 
         document.getElementById("resultCard").style.display = "block";
       } catch (err) {
-        console.error("❌ ERROR:", err);
+        console.error("❌ โหลดข้อมูลล้มเหลว:", err);
         showAlert("❌ โหลดข้อมูลล้มเหลว: " + err.message, "danger");
       }
     });
 
-    document.getElementById("viewResultBtn").addEventListener("click", () => {
-      const selectedDate = document.getElementById("dateSelect").value;
+    document.getElementById("checkBtn").addEventListener("click", async () => {
+      const selectedDate = document.getElementById("dateSelect").value.trim();
       const nationalId = document.getElementById("nationalId").value.trim();
 
-      if (!selectedDate || !/^\d{13}$/.test(nationalId)) {
-        return showAlert("⚠️ โปรดเลือกวันที่และกรอกเลขบัตรให้ถูกต้อง", "warning");
+      if (!selectedDate || !nationalId || nationalId.length !== 13) {
+        return showAlert("⚠️ กรุณาเลือกวันที่และกรอกเลขบัตรให้ครบ 13 หลัก", "warning");
       }
 
-      const hash = CryptoJS.SHA256(nationalId).toString();
-      const found = resultData.find(row => row.date === selectedDate && row.nationalIdHash === hash);
+      const hash = await sha256(nationalId);
+      const filtered = resultData.filter(row => row.date === selectedDate && row.nationalIdHash === hash);
 
-      if (!found) return showAlert("❌ ไม่พบผลตรวจที่ตรงกัน", "danger");
+      const container = document.getElementById("resultContainer");
+      container.innerHTML = "";
 
-      document.getElementById("resultImage").src = found.resultImageUrl;
-      document.getElementById("resultSection").style.display = "block";
+      if (filtered.length === 0) {
+        return showAlert("❌ ไม่พบผลตรวจสำหรับวันที่เลือก", "danger");
+      }
+
+      filtered.forEach(result => {
+        if (result.resultImageUrl.endsWith(".pdf")) {
+          container.innerHTML += `<p><a href="${result.resultImageUrl}" target="_blank">📄 เปิดผลตรวจ (PDF)</a></p>`;
+        } else {
+          container.innerHTML += `<img src="${result.resultImageUrl}" alt="ผลตรวจ">`;
+        }
+      });
+
+      showAlert("✅ แสดงผลตรวจเรียบร้อย", "success");
     });
-
-    function showAlert(msg, type) {
-      const box = document.getElementById("alertBox");
-      box.textContent = msg;
-      box.className = `alert alert-${type} text-center`;
-      box.classList.remove("d-none");
-    }
   </script>
 </body>
 </html>
