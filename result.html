@@ -37,23 +37,34 @@
   </div>
 
   <script>
-    const liffId = "2007284346-Kb68WM5d"; // 🔁 เปลี่ยนเป็น LIFF ID ของคุณ
-    const appsScriptUrl = "https://script.google.com/macros/s/AKfycbz4CFN0qyxJffUc7YqzI_1gUEgv2PDzkbsVeI7ORXHhFujw_k9WKpYk5F6zbdK4ESvL/exec"; // 🔁 เปลี่ยนเป็น URL ของ Apps Script
+    const liffId = "2007284346-Kb68WM5d"; // 🔁 เปลี่ยนเป็นของคุณ
+    const appsScriptUrl = "https://script.google.com/macros/s/AKfycbz4CFN0qyxJffUc7YqzI_1gUEgv2PDzkbsVeI7ORXHhFujw_k9WKpYk5F6zbdK4ESvL/exec"; // 🔁 เปลี่ยนเป็นของคุณ
 
     let userId = "";
     let resultData = [];
 
-    document.addEventListener("DOMContentLoaded", async () => {
+    async function initializeApp() {
       try {
         await liff.init({ liffId });
-        if (!liff.isLoggedIn()) return liff.login();
+
+        // 🔒 ตรวจว่าเปิดผ่าน LINE app เท่านั้น
+        if (!liff.isInClient()) {
+          document.body.innerHTML = '<div class="container text-center mt-5"><h3>กรุณาเปิดผ่านแอป LINE เท่านั้น</h3></div>';
+          return;
+        }
+
+        // 🔐 บังคับ login (ถ้ายัง)
+        if (!liff.isLoggedIn()) {
+          liff.login(); // กลับมาใหม่ใน full mode
+          return;
+        }
 
         const profile = await liff.getProfile();
-        document.getElementById("lineName").innerText = profile.displayName;
         userId = profile.userId;
+        document.getElementById("lineName").innerText = profile.displayName;
 
+        // ดึงข้อมูลผลตรวจ
         const body = new URLSearchParams({ userId });
-
         const res = await fetch(appsScriptUrl, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -63,7 +74,7 @@
         const allData = await res.json();
         resultData = allData;
 
-        if (resultData.length === 0) {
+        if (!Array.isArray(resultData) || resultData.length === 0) {
           return showAlert("ยังไม่มีผลตรวจของคุณ", "error");
         }
 
@@ -80,24 +91,23 @@
           return showAlert("ไม่มีวันที่ตรวจในข้อมูลของคุณ", "warning");
         }
 
-        // แปลงวันที่เป็น วัน/เดือน/ปี พ.ศ.
         [...dateSet].sort().forEach(dateStr => {
-          const date = new Date(dateStr);
-          if (!isNaN(date)) {
-            const day = date.getDate();
-            const month = date.getMonth() + 1;
-            const year = date.getFullYear() + 543;
-            const display = `${day}/${month.toString().padStart(2, '0')}/${year}`;
-            const option = document.createElement("option");
-            option.value = dateStr;
-            option.textContent = display;
-            dateSelect.appendChild(option);
-          } else {
-            const option = document.createElement("option");
-            option.value = dateStr;
+          const option = document.createElement("option");
+          try {
+            const d = new Date(dateStr);
+            if (!isNaN(d)) {
+              const day = d.getDate();
+              const month = d.getMonth() + 1;
+              const year = d.getFullYear() + 543;
+              option.textContent = `${day}/${month.toString().padStart(2, '0')}/${year}`;
+            } else {
+              option.textContent = dateStr;
+            }
+          } catch {
             option.textContent = dateStr;
-            dateSelect.appendChild(option);
           }
+          option.value = dateStr;
+          dateSelect.appendChild(option);
         });
 
         document.getElementById("resultCard").style.display = "block";
@@ -105,7 +115,7 @@
         console.error("❌ ERROR:", err);
         showAlert("โหลดข้อมูลล้มเหลว: " + err.message, "error");
       }
-    });
+    }
 
     document.getElementById("viewResultBtn").addEventListener("click", () => {
       const selectedDate = document.getElementById("dateSelect").value;
@@ -121,7 +131,6 @@
       if (!found) return showAlert("ไม่พบผลตรวจที่ตรงกัน", "error");
 
       const fileUrl = found.resultImageUrl;
-
       document.getElementById("resultLink").href = fileUrl;
 
       const qrDiv = document.getElementById("qrcode");
@@ -142,7 +151,7 @@
     function showAlert(message, type) {
       Swal.fire({
         text: message,
-        icon: type, // 'success', 'error', 'warning', 'info'
+        icon: type,
         confirmButtonText: 'ตกลง',
         customClass: {
           popup: 'rounded-4',
@@ -151,6 +160,8 @@
         buttonsStyling: false
       });
     }
+
+    document.addEventListener("DOMContentLoaded", initializeApp);
   </script>
 </body>
 </html>
